@@ -1,0 +1,99 @@
+use serde::{Deserialize, Serialize};
+use tauri::Manager;
+
+use crate::{application::library, domain::paper::Paper};
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PaperDto {
+    revision: i64,
+    id: String,
+    title: String,
+    authors: Vec<String>,
+    year: Option<i32>,
+    doi: Option<String>,
+    source_url: Option<String>,
+    created_at: String,
+}
+
+impl From<Paper> for PaperDto {
+    fn from(paper: Paper) -> Self {
+        Self {
+            revision: paper.revision,
+            id: paper.id,
+            title: paper.title,
+            authors: paper.authors,
+            year: paper.year,
+            doi: paper.doi,
+            source_url: paper.source_url,
+            created_at: paper.created_at,
+        }
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportDto {
+    paper_id: String,
+    duplicate: bool,
+}
+
+#[tauri::command]
+pub async fn import_pdf(app: tauri::AppHandle, source_path: String) -> Result<ImportDto, String> {
+    let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    tauri::async_runtime::spawn_blocking(move || {
+        library::import_pdf(std::path::Path::new(&source_path), &data_dir).map(|result| ImportDto {
+            paper_id: result.paper_id,
+            duplicate: result.duplicate,
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn list_papers(app: tauri::AppHandle) -> Result<Vec<PaperDto>, String> {
+    let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    tauri::async_runtime::spawn_blocking(move || {
+        library::list_papers(&data_dir).map(|papers| papers.into_iter().map(Into::into).collect())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MetadataInput {
+    id: String,
+    expected_revision: i64,
+    title: String,
+    authors: Vec<String>,
+    year: Option<i32>,
+    doi: Option<String>,
+    source_url: Option<String>,
+}
+
+#[tauri::command]
+pub async fn update_metadata(
+    app: tauri::AppHandle,
+    input: MetadataInput,
+) -> Result<PaperDto, String> {
+    let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    tauri::async_runtime::spawn_blocking(move || {
+        library::update_metadata(
+            &data_dir,
+            crate::domain::paper::MetadataUpdate {
+                id: input.id,
+                expected_revision: input.expected_revision,
+                title: input.title,
+                authors: input.authors,
+                year: input.year,
+                doi: input.doi,
+                source_url: input.source_url,
+            },
+        )
+        .map(Into::into)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
