@@ -8,8 +8,10 @@ export type Paper = {
   doi: string | null;
   sourceUrl: string | null;
   createdAt: string;
+  originalName: string;
+  hasMarkdown: boolean;
 };
 
 export type ImportResult = { paperId: string; duplicate: boolean };
 
-export type MetadataInput = Omit<Paper, "revision" | "createdAt"> & { expectedRevision: number };
+export type MetadataInput = Omit<Paper, "revision" | "createdAt" | "originalName" | "hasMarkdown"> & { expectedRevision: number };

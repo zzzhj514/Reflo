@@ -115,6 +115,32 @@ h2 {
   overflow-y: auto;
 }
 
+.paper-folder { margin-bottom: 5px; }
+.paper-folder-row { display: flex; align-items: stretch; border: 1px solid transparent; border-radius: 9px; }
+.paper-folder-row:hover { background: #f5f6f8; }
+.paper-folder-row[data-selected] { border-color: #bfdbfe; background: #eff6ff; }
+.folder-disclosure { display: grid; place-items: center; width: 36px; padding: 0; border: 0; background: transparent; color: #64748b; cursor: pointer; }
+.folder-disclosure span { font-size: 22px; line-height: 1; }
+.paper-folder-summary { display: flex; flex: 1; align-items: center; gap: 10px; min-width: 0; padding: 13px 12px 13px 0; border: 0; background: transparent; text-align: left; cursor: pointer; }
+.folder-icon { display: grid; place-items: center; flex: 0 0 30px; height: 24px; border-radius: 4px; background: #f6c453; color: #754c00; font-size: 11px; }
+.paper-folder-copy { display: flex; flex: 1; flex-direction: column; gap: 5px; min-width: 0; }
+.paper-artifact-list { margin: 3px 0 8px 28px; padding: 0 0 0 15px; border-left: 1px solid #dbe3ee; list-style: none; }
+.paper-artifact { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; border: 0; border-radius: 7px; background: transparent; text-align: left; cursor: pointer; }
+.paper-artifact:not(:disabled):hover { background: #f1f5f9; }
+.paper-artifact > span:nth-child(2) { display: flex; flex-direction: column; min-width: 0; }
+.paper-artifact strong { font-size: 13px; font-weight: 600; }
+.paper-artifact small { margin-top: 3px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.paper-artifact.planned { opacity: .58; }
+.artifact-icon { display: grid; place-items: center; width: 34px; height: 28px; border-radius: 5px; font-size: 10px; font-weight: 700; }
+.artifact-icon.pdf { background: #fee2e2; color: #b91c1c; }
+.artifact-icon.markdown { background: #dbeafe; color: #1d4ed8; }
+.artifact-icon.tree { background: #dcfce7; color: #15803d; }
+.artifact-icon.translation { background: #f3e8ff; color: #7e22ce; }
+.artifact-status { padding: 3px 7px; border-radius: 999px; font-size: 10px; white-space: nowrap; }
+.artifact-status.ready { background: #dcfce7; color: #166534; }
+.artifact-status.pending { background: #fef3c7; color: #92400e; }
+.artifact-status.planned { background: #e2e8f0; color: #475569; }
+
 .paper-item {
   display: flex;
   flex-direction: column;

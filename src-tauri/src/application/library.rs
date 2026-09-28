@@ -107,6 +107,14 @@ pub fn list_papers(data_dir: &Path) -> Result<Vec<Paper>, String> {
     papers::list_papers(&data_dir.join("reflo.sqlite")).map_err(|e| e.to_string())
 }
 
+pub fn artifact_status(
+    data_dir: &Path,
+    paper_id: &str,
+) -> Result<papers::PaperArtifactStatus, String> {
+    papers::artifact_status(&data_dir.join("reflo.sqlite"), paper_id)
+        .map_err(|error| error.to_string())
+}
+
 pub fn update_metadata(
     data_dir: &Path,
     mut update: crate::domain::paper::MetadataUpdate,
@@ -185,6 +193,9 @@ mod tests {
         let papers = list_papers(&fixture.0).unwrap();
         assert_eq!(papers.len(), 1);
         assert_eq!(papers[0].title, "example");
+        let artifacts = artifact_status(&fixture.0, &imported.paper_id).unwrap();
+        assert_eq!(artifacts.original_name, "example.pdf");
+        assert!(!artifacts.has_markdown);
         let renamed = fixture.0.join("renamed.pdf");
         fs::copy(&source, &renamed).unwrap();
         let duplicate = import_pdf(&renamed, &fixture.0).unwrap();

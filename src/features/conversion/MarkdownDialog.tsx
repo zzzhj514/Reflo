@@ -9,7 +9,7 @@ import type { Paper } from "../../shared/contracts/library";
 import type { MarkdownDocument, MinerUPreferences } from "../../shared/contracts/conversion";
 import { convertPdfToMarkdown, getMarkdownDocument, getMineruSettings, saveMineruSettings } from "../../shared/ipc/conversion";
 
-type Props = { paper: Paper; onClose: () => void };
+type Props = { paper: Paper; onConverted?: () => void; onClose: () => void };
 
 const DEFAULT_SETTINGS: MinerUPreferences = {
   model: "vlm", language: "en", enableOcr: false, enableFormula: true, enableTable: true,
@@ -20,7 +20,7 @@ const LANGUAGES: Array<[MinerUPreferences["language"], string]> = [
   ["fr", "法文"], ["de", "德文"], ["es", "西班牙文"],
 ];
 
-export function MarkdownDialog({ paper, onClose }: Props) {
+export function MarkdownDialog({ paper, onConverted, onClose }: Props) {
   const [document, setDocument] = useState<MarkdownDocument | null>(null);
   const [loading, setLoading] = useState(true);
   const [converting, setConverting] = useState(false);
@@ -76,6 +76,7 @@ export function MarkdownDialog({ paper, onClose }: Props) {
       await persistSettings();
       const result = await convertPdfToMarkdown(paper.id);
       setDocument(result);
+      onConverted?.();
       setShowSettings(false);
       setMode("preview");
     } catch (cause) { setError(String(cause)); }

@@ -6,6 +6,27 @@ use crate::domain::paper::{Document, MetadataUpdate, Paper};
 
 use super::open_connection;
 
+pub struct PaperArtifactStatus {
+    pub original_name: String,
+    pub has_markdown: bool,
+}
+
+pub fn artifact_status(path: &Path, paper_id: &str) -> rusqlite::Result<PaperArtifactStatus> {
+    open_connection(path)?.query_row(
+        "SELECT d.original_name, EXISTS(
+            SELECT 1 FROM markdown_documents m WHERE m.document_id = d.id
+         )
+         FROM documents d WHERE d.paper_id = ?1 ORDER BY d.created_at LIMIT 1",
+        [paper_id],
+        |row| {
+            Ok(PaperArtifactStatus {
+                original_name: row.get(0)?,
+                has_markdown: row.get(1)?,
+            })
+        },
+    )
+}
+
 pub fn insert_paper_with_document(
     database_path: &Path,
     paper: &Paper,

@@ -3,7 +3,7 @@ import "../shared/styles/global.css";
 import { open } from "@tauri-apps/plugin-dialog";
 import { importPdf, listPapers } from "../shared/ipc/library";
 import { ReaderWorkspace } from "../features/reader";
-import { MetadataEditor } from "../features/library";
+import { MetadataEditor, PaperFolder } from "../features/library";
 import { MarkdownDialog } from "../features/conversion";
 import type { Paper } from "../shared/contracts/library";
 
@@ -14,6 +14,7 @@ export default function App() {
   const [isSelecting, setIsSelecting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState(false);
   const [reading, setReading] = useState<{ id: string; title: string } | null>(null);
@@ -53,6 +54,7 @@ export default function App() {
         const result = await importPdf(path);
         setQuery("");
         setSelectedId(result.paperId);
+        setExpandedIds((current) => new Set(current).add(result.paperId));
         setMessage(result.duplicate ? "此 PDF 已在文献库中，已选中原记录。" : "PDF 已导入并保存到本地文献库。");
         try {
           const refreshed = await listPapers();
@@ -143,19 +145,25 @@ export default function App() {
         )}
         <ul className="paper-list" aria-label="文献列表">
           {filteredPapers.map((paper) => (
-            <li key={paper.id}>
-              <button
-                className="paper-item"
-                aria-pressed={selectedId === paper.id}
-                disabled={editing || isSelecting}
-                onClick={() => setSelectedId(paper.id)}
-              >
-                <span className="paper-title">{paper.title}</span>
-                <span className="muted">
-                  {paper.authors.join("、") || "作者待填写"} · {paper.year ?? "年份待填写"}
-                </span>
-              </button>
-            </li>
+            <PaperFolder key={paper.id} paper={paper} expanded={expandedIds.has(paper.id)}
+              selected={selectedId === paper.id} disabled={editing || isSelecting}
+              onSelect={() => setSelectedId(paper.id)}
+              onToggle={() => {
+                setSelectedId(paper.id);
+                setExpandedIds((current) => {
+                  const next = new Set(current);
+                  if (next.has(paper.id)) next.delete(paper.id); else next.add(paper.id);
+                  return next;
+                });
+              }}
+              onOpenPdf={() => {
+                setSelectedId(paper.id);
+                setReading({ id: paper.id, title: paper.title });
+              }}
+              onOpenMarkdown={() => {
+                setSelectedId(paper.id);
+                setConvertingPaper(paper);
+              }} />
           ))}
         </ul>
       </main>
@@ -189,6 +197,11 @@ export default function App() {
       {convertingPaper && (
         <MarkdownDialog
           paper={convertingPaper}
+          onConverted={() => {
+            setPapers((current) => current.map((paper) => paper.id === convertingPaper.id
+              ? { ...paper, hasMarkdown: true }
+              : paper));
+          }}
           onClose={() => setConvertingPaper(null)}
         />
       )}

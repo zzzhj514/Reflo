@@ -14,10 +14,12 @@ pub struct PaperDto {
     doi: Option<String>,
     source_url: Option<String>,
     created_at: String,
+    original_name: String,
+    has_markdown: bool,
 }
 
-impl From<Paper> for PaperDto {
-    fn from(paper: Paper) -> Self {
+impl PaperDto {
+    fn new(paper: Paper, original_name: String, has_markdown: bool) -> Self {
         Self {
             revision: paper.revision,
             id: paper.id,
@@ -27,6 +29,8 @@ impl From<Paper> for PaperDto {
             doi: paper.doi,
             source_url: paper.source_url,
             created_at: paper.created_at,
+            original_name,
+            has_markdown,
         }
     }
 }
@@ -55,7 +59,17 @@ pub async fn import_pdf(app: tauri::AppHandle, source_path: String) -> Result<Im
 pub async fn list_papers(app: tauri::AppHandle) -> Result<Vec<PaperDto>, String> {
     let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     tauri::async_runtime::spawn_blocking(move || {
-        library::list_papers(&data_dir).map(|papers| papers.into_iter().map(Into::into).collect())
+        library::list_papers(&data_dir)?
+            .into_iter()
+            .map(|paper| {
+                let artifacts = library::artifact_status(&data_dir, &paper.id)?;
+                Ok(PaperDto::new(
+                    paper,
+                    artifacts.original_name,
+                    artifacts.has_markdown,
+                ))
+            })
+            .collect()
     })
     .await
     .map_err(|e| e.to_string())?
@@ -80,7 +94,7 @@ pub async fn update_metadata(
 ) -> Result<PaperDto, String> {
     let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     tauri::async_runtime::spawn_blocking(move || {
-        library::update_metadata(
+        let paper = library::update_metadata(
             &data_dir,
             crate::domain::paper::MetadataUpdate {
                 id: input.id,
@@ -91,8 +105,13 @@ pub async fn update_metadata(
                 doi: input.doi,
                 source_url: input.source_url,
             },
-        )
-        .map(Into::into)
+        )?;
+        let artifacts = library::artifact_status(&data_dir, &paper.id)?;
+        Ok(PaperDto::new(
+            paper,
+            artifacts.original_name,
+            artifacts.has_markdown,
+        ))
     })
     .await
     .map_err(|e| e.to_string())?
