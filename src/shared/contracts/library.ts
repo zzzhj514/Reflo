@@ -9,6 +9,7 @@ export type Paper = {
   sourceUrl: string | null;
   venue: string | null;
   publisher: string | null;
+  groupId: string | null;
   createdAt: string;
   originalName: string;
   hasMarkdown: boolean;
@@ -19,4 +20,7 @@ export type Paper = {
 
 export type ImportResult = { paperId: string; duplicate: boolean };
 
-export type MetadataInput = Omit<Paper, "revision" | "createdAt" | "originalName" | "hasMarkdown" | "hasTranslation" | "hasPaperTree" | "hasRag"> & { expectedRevision: number };
+export type MetadataInput = Omit<Paper, "revision" | "createdAt" | "originalName" | "groupId" | "hasMarkdown" | "hasTranslation" | "hasPaperTree" | "hasRag"> & { expectedRevision: number };
+
+export type PaperGroup = { id: string; name: string; paperCount: number };
+export type TodoItem = { id: string; title: string; completed: boolean; createdAt: string };

@@ -41,6 +41,7 @@ pub fn import_pdf(source: &Path, data_dir: &Path) -> Result<ImportOutcome, Strin
             source_url: None,
             venue: None,
             publisher: None,
+            group_id: None,
             created_at: created_at.clone(),
         };
         let document = Document {

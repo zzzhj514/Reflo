@@ -1,5 +1,6 @@
 pub mod conversions;
 pub mod credentials;
+pub mod organization;
 pub mod paper_trees;
 pub mod papers;
 pub mod rag;
@@ -25,7 +26,7 @@ pub fn initialize(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
 
     let version: i64 = transaction.query_row("PRAGMA user_version;", [], |row| row.get(0))?;
 
-    if !(0..=12).contains(&version) {
+    if !(0..=13).contains(&version) {
         return Err(std::io::Error::new(
             std::io::ErrorKind::InvalidData,
             format!("不支持的数据库版本：{version}"),
@@ -93,6 +94,10 @@ pub fn initialize(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
             "../../../migrations/012_paper_publication.sql"
         ))?;
         transaction.execute_batch("PRAGMA user_version = 12;")?;
+    }
+    if version < 13 {
+        transaction.execute_batch(include_str!("../../../migrations/013_organization.sql"))?;
+        transaction.execute_batch("PRAGMA user_version = 13;")?;
     }
     transaction.commit()?;
 

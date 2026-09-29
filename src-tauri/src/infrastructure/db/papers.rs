@@ -59,8 +59,8 @@ pub fn insert_paper_with_document(
 
     transaction.execute(
         "INSERT INTO papers (
-            id, title, authors_json, year, doi, source_url, venue, publisher, created_at
-        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            id, title, authors_json, year, doi, source_url, venue, publisher, group_id, created_at
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
         params![
             paper.id,
             paper.title,
@@ -70,6 +70,7 @@ pub fn insert_paper_with_document(
             paper.source_url,
             paper.venue,
             paper.publisher,
+            paper.group_id,
             paper.created_at,
         ],
     )?;
@@ -106,14 +107,14 @@ pub fn find_paper_id_by_sha256(path: &Path, sha256: &str) -> rusqlite::Result<Op
 pub fn list_papers(path: &Path) -> Result<Vec<Paper>, Box<dyn std::error::Error>> {
     let connection = open_connection(path)?;
     let mut statement = connection.prepare(
-        "SELECT id, title, authors_json, year, doi, source_url, venue, publisher, created_at, revision FROM papers ORDER BY created_at DESC, id"
+        "SELECT id, title, authors_json, year, doi, source_url, venue, publisher, group_id, created_at, revision FROM papers ORDER BY created_at DESC, id"
     )?;
     let mut rows = statement.query([])?;
     let mut papers = Vec::new();
     while let Some(row) = rows.next()? {
         let authors_json: String = row.get(2)?;
         papers.push(Paper {
-            revision: row.get(9)?,
+            revision: row.get(10)?,
             id: row.get(0)?,
             title: row.get(1)?,
             authors: serde_json::from_str(&authors_json)?,
@@ -122,7 +123,8 @@ pub fn list_papers(path: &Path) -> Result<Vec<Paper>, Box<dyn std::error::Error>
             source_url: row.get(5)?,
             venue: row.get(6)?,
             publisher: row.get(7)?,
-            created_at: row.get(8)?,
+            group_id: row.get(8)?,
+            created_at: row.get(9)?,
         });
     }
     Ok(papers)
@@ -150,10 +152,10 @@ pub fn update_metadata(
         )
         .into());
     }
-    let created_at = transaction.query_row(
-        "SELECT created_at FROM papers WHERE id=?1",
+    let (created_at, group_id) = transaction.query_row(
+        "SELECT created_at, group_id FROM papers WHERE id=?1",
         params![update.id],
-        |row| row.get(0),
+        |row| Ok((row.get(0)?, row.get(1)?)),
     )?;
     transaction.commit()?;
     Ok(Paper {
@@ -166,6 +168,7 @@ pub fn update_metadata(
         source_url: update.source_url.clone(),
         venue: update.venue.clone(),
         publisher: update.publisher.clone(),
+        group_id,
         created_at,
     })
 }

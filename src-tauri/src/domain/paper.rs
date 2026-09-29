@@ -9,6 +9,7 @@ pub struct Paper {
     pub source_url: Option<String>,
     pub venue: Option<String>,
     pub publisher: Option<String>,
+    pub group_id: Option<String>,
     pub created_at: String,
 }
 
