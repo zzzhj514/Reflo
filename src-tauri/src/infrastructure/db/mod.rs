@@ -1,6 +1,7 @@
 pub mod conversions;
 pub mod papers;
 pub mod reader;
+pub mod translations;
 use rusqlite::Connection;
 use std::path::Path;
 use std::time::Duration;
@@ -21,7 +22,7 @@ pub fn initialize(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
 
     let version: i64 = transaction.query_row("PRAGMA user_version;", [], |row| row.get(0))?;
 
-    if !(0..=6).contains(&version) {
+    if !(0..=7).contains(&version) {
         return Err(std::io::Error::new(
             std::io::ErrorKind::InvalidData,
             format!("不支持的数据库版本：{version}"),
@@ -59,6 +60,12 @@ pub fn initialize(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
             "../../../migrations/006_conversion_settings.sql"
         ))?;
         transaction.execute_batch("PRAGMA user_version = 6;")?;
+    }
+    if version < 7 {
+        transaction.execute_batch(include_str!(
+            "../../../migrations/007_translation_settings.sql"
+        ))?;
+        transaction.execute_batch("PRAGMA user_version = 7;")?;
     }
     transaction.commit()?;
 

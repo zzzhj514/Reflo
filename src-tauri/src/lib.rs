@@ -19,7 +19,10 @@ pub fn run() {
             commands::conversion::get_markdown_document,
             commands::conversion::get_mineru_settings,
             commands::conversion::save_mineru_settings,
-            commands::conversion::convert_pdf_to_markdown
+            commands::conversion::convert_pdf_to_markdown,
+            commands::translation::get_translation_settings,
+            commands::translation::save_translation_settings,
+            commands::translation::translate_text
         ])
         .setup(|app| {
             let data_dir = app.path().app_data_dir()?;

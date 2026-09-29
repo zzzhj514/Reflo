@@ -1,4 +1,7 @@
-use crate::infrastructure::db::{conversions, reader};
+use crate::infrastructure::{
+    credentials,
+    db::{conversions, reader},
+};
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -10,7 +13,6 @@ use zip::ZipArchive;
 
 const BASE_URL: &str = "https://mineru.net";
 const MAX_DOWNLOAD_BYTES: u64 = 512 * 1024 * 1024;
-const KEYCHAIN_SERVICE: &str = "com.zzzhj514.reflo";
 const KEYCHAIN_ACCOUNT: &str = "mineru-api-token";
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -109,38 +111,6 @@ fn validate_preferences(settings: &MinerUPreferences) -> Result<(), String> {
     Ok(())
 }
 
-#[cfg(target_os = "macos")]
-fn read_token() -> Result<Option<String>, String> {
-    use security_framework::passwords::get_generic_password;
-    match get_generic_password(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT) {
-        Ok(bytes) => String::from_utf8(bytes)
-            .map(Some)
-            .map_err(|_| "钥匙串中的 MinerU Token 编码无效".to_string()),
-        Err(error) if error.code() == -25300 => Ok(None),
-        Err(error) => Err(format!("读取 macOS 钥匙串失败：{error}")),
-    }
-}
-
-#[cfg(target_os = "macos")]
-fn write_token(token: &str) -> Result<(), String> {
-    security_framework::passwords::set_generic_password(
-        KEYCHAIN_SERVICE,
-        KEYCHAIN_ACCOUNT,
-        token.as_bytes(),
-    )
-    .map_err(|error| format!("写入 macOS 钥匙串失败：{error}"))
-}
-
-#[cfg(not(target_os = "macos"))]
-fn read_token() -> Result<Option<String>, String> {
-    Err("当前系统尚未实现安全凭据存储".into())
-}
-
-#[cfg(not(target_os = "macos"))]
-fn write_token(_token: &str) -> Result<(), String> {
-    Err("当前系统尚未实现安全凭据存储".into())
-}
-
 fn preferences_from_record(record: conversions::MinerUPreferencesRecord) -> MinerUPreferences {
     MinerUPreferences {
         model: record.model,
@@ -158,7 +128,7 @@ pub fn get_settings(data_dir: &Path) -> Result<MinerUSettingsStatus, String> {
     validate_preferences(&preferences)?;
     Ok(MinerUSettingsStatus {
         preferences,
-        token_configured: read_token()?.is_some(),
+        token_configured: credentials::get(KEYCHAIN_ACCOUNT)?.is_some(),
     })
 }
 
@@ -174,7 +144,7 @@ pub fn save_settings(
         if token.is_empty() || token.len() > 4096 {
             return Err("请填写有效的 MinerU API Token".into());
         }
-        write_token(token)?;
+        credentials::set(KEYCHAIN_ACCOUNT, token)?;
     }
     conversions::save_mineru_preferences(
         &data_dir.join("reflo.sqlite"),
@@ -332,7 +302,7 @@ pub fn convert(data_dir: &Path, paper_id: &str) -> Result<MarkdownDocument, Stri
         .map(preferences_from_record)
         .map_err(|error| error.to_string())?;
     validate_preferences(&preferences)?;
-    let api_token = read_token()?.ok_or("请先保存 MinerU API Token")?;
+    let api_token = credentials::get(KEYCHAIN_ACCOUNT)?.ok_or("请先保存 MinerU API Token")?;
     let settings = MinerUSettings {
         api_token,
         preferences,

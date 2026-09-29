@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, MouseEvent, WheelEvent } from "react";
 import type { Annotation } from "../../../shared/contracts/reader";
+import { translateText } from "../../../shared/ipc/translation";
 import {
   createAnnotation,
   deleteAnnotation,
@@ -10,7 +11,6 @@ import {
 } from "../../../shared/ipc/reader";
 import { loadPdf } from "../engine/pdf-engine";
 import type { PDFDocumentProxy } from "../engine/pdf-engine";
-import { translateText } from "../services/translation";
 import { AllPagesView } from "./AllPagesView";
 import { ContinuousPdfView } from "./ContinuousPdfView";
 import { PdfViewport } from "./PdfViewport";
@@ -256,7 +256,7 @@ export function ReaderWorkspace({ paperId, title, onClose }: Props) {
   function startTranslation() {
     if (!selection) return;
     const sourceText = selection.text;
-    setInspector({ mode: "translation", sourceText, translatedText: null, loading: true, error: null, truncated: false });
+    setInspector({ mode: "translation", sourceText, translatedText: null, loading: true, error: null, truncated: false, provider: null, model: null });
     void translateText(sourceText).then((result) => {
       setInspector({
         mode: "translation",
@@ -265,9 +265,11 @@ export function ReaderWorkspace({ paperId, title, onClose }: Props) {
         loading: false,
         error: null,
         truncated: result.truncated,
+        provider: result.provider,
+        model: result.model,
       });
     }).catch((cause) => {
-      setInspector({ mode: "translation", sourceText, translatedText: null, loading: false, error: String(cause), truncated: false });
+      setInspector({ mode: "translation", sourceText, translatedText: null, loading: false, error: String(cause), truncated: false, provider: null, model: null });
     });
   }
 
@@ -331,6 +333,7 @@ export function ReaderWorkspace({ paperId, title, onClose }: Props) {
             <button className="annotation-toggle" data-selection-ui onClick={() => setInspector({ mode: "list" })}>
               批注 {annotations.length}
             </button>
+            <button data-selection-ui onClick={() => setInspector({ mode: "translation-settings" })}>翻译设置</button>
             <span className="muted" role="status">{savePending ? "保存位置中…" : "阅读位置自动保存"}</span>
             <span className="muted reader-wheel-help">
               {viewMode === "all"
@@ -393,6 +396,7 @@ export function ReaderWorkspace({ paperId, title, onClose }: Props) {
           }}
           onDelete={(id) => void removeAnnotation(id)}
           onOpenPage={openAnnotationPage}
+          onOpenTranslationSettings={() => setInspector({ mode: "translation-settings" })}
         />
       )}
       {!pdf && !error && <p className="reader-notice" role="status">正在加载 PDF…</p>}

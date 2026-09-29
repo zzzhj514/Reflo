@@ -212,6 +212,8 @@ input:focus-visible, textarea:focus-visible { outline: 2px solid #2563eb; outlin
 .metadata-form textarea { resize: vertical; }
 .metadata-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
 .secondary-button { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; cursor: pointer; }
+.primary-button { padding: 8px 12px; border: 0; border-radius: 8px; background: #2563eb; color: white; cursor: pointer; }
+.primary-button:disabled { opacity: .5; cursor: not-allowed; }
 button:disabled { cursor: not-allowed; }
 .secondary-button:disabled { opacity: .5; }
 .form-error { margin-top: 12px; color: #b91c1c; font-size: 13px; overflow-wrap: anywhere; }
@@ -302,6 +304,11 @@ button:disabled { cursor: not-allowed; }
 .inspector-label { margin: 4px 0 0; color: #64748b; font-size: 12px; font-weight: 600; }
 .translation-result { margin: 0; white-space: pre-wrap; line-height: 1.65; }
 .translation-provider { margin-top: 12px; font-size: 11px; }
+.translation-settings { display: grid; gap: 13px; }
+.translation-settings label { display: grid; gap: 6px; color: #374151; font-size: 12px; font-weight: 600; }
+.translation-settings input, .translation-settings select { width: 100%; min-width: 0; padding: 8px 9px; border: 1px solid #cbd5e1; border-radius: 7px; background: white; font: inherit; font-weight: 400; }
+.translation-settings .primary-button { margin-top: 4px; }
+.settings-success { color: #15803d; font-size: 13px; }
 .annotation-list { display: flex; flex-direction: column; gap: 12px; }
 .annotation-card { padding: 12px; border: 1px solid #e5e7eb; border-radius: 9px; }
 .annotation-card p { margin: 10px 0; line-height: 1.5; white-space: pre-wrap; }

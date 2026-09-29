@@ -1,9 +1,11 @@
 import type { Annotation } from "../../../shared/contracts/reader";
+import { TranslationSettings } from "./TranslationSettings";
 
 export type InspectorState =
   | { mode: "list" }
   | { mode: "note"; selectedText: string; note: string }
-  | { mode: "translation"; sourceText: string; translatedText: string | null; loading: boolean; error: string | null; truncated: boolean };
+  | { mode: "translation"; sourceText: string; translatedText: string | null; loading: boolean; error: string | null; truncated: boolean; provider: string | null; model: string | null }
+  | { mode: "translation-settings" };
 
 type Props = {
   state: InspectorState;
@@ -14,13 +16,14 @@ type Props = {
   onSaveNote: () => void;
   onDelete: (id: string) => void;
   onOpenPage: (pageIndex: number) => void;
+  onOpenTranslationSettings: () => void;
 };
 
-export function ReaderInspector({ state, annotations, busy, onClose, onNoteChange, onSaveNote, onDelete, onOpenPage }: Props) {
+export function ReaderInspector({ state, annotations, busy, onClose, onNoteChange, onSaveNote, onDelete, onOpenPage, onOpenTranslationSettings }: Props) {
   return (
     <aside className="reader-inspector" data-selection-ui aria-label="阅读批注面板">
       <header>
-        <h3>{state.mode === "translation" ? "翻译" : state.mode === "note" ? "添加批注" : `批注与高亮 ${annotations.length}`}</h3>
+        <h3>{state.mode === "translation" ? "翻译" : state.mode === "translation-settings" ? "翻译设置" : state.mode === "note" ? "添加批注" : `批注与高亮 ${annotations.length}`}</h3>
         <button aria-label="关闭侧栏" onClick={onClose}>×</button>
       </header>
       {state.mode === "note" && (
@@ -40,10 +43,14 @@ export function ReaderInspector({ state, annotations, busy, onClose, onNoteChang
           <p className="inspector-label">译文</p>
           {state.loading && <p className="muted" role="status">正在翻译…</p>}
           {state.error && <p className="form-error" role="alert">{state.error}</p>}
+          {state.error && <button className="secondary-button" onClick={onOpenTranslationSettings}>打开翻译设置</button>}
           {state.translatedText && <p className="translation-result">{state.translatedText}</p>}
-          {state.truncated && <p className="muted">所选内容较长，本次仅翻译前 500 字节。</p>}
-          <p className="muted translation-provider">翻译时所选文字会发送至 MyMemory。</p>
+          {state.truncated && <p className="muted">所选内容较长，本次仅翻译前 12,000 个字符。</p>}
+          {state.provider && <p className="muted translation-provider">{state.provider} · {state.model}</p>}
         </div>
+      )}
+      {state.mode === "translation-settings" && (
+        <div className="inspector-content"><TranslationSettings /></div>
       )}
       {state.mode === "list" && (
         <div className="annotation-list">
