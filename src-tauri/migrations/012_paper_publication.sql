@@ -1,0 +1,3 @@
+ALTER TABLE papers ADD COLUMN venue TEXT;
+ALTER TABLE papers ADD COLUMN publisher TEXT;
+

@@ -7,6 +7,8 @@ pub struct Paper {
     pub year: Option<i32>,
     pub doi: Option<String>,
     pub source_url: Option<String>,
+    pub venue: Option<String>,
+    pub publisher: Option<String>,
     pub created_at: String,
 }
 
@@ -18,6 +20,8 @@ pub struct MetadataUpdate {
     pub year: Option<i32>,
     pub doi: Option<String>,
     pub source_url: Option<String>,
+    pub venue: Option<String>,
+    pub publisher: Option<String>,
 }
 
 #[derive(Debug, Clone)]

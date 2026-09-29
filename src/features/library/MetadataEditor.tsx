@@ -17,6 +17,8 @@ export function MetadataEditor({ paper, disabled = false, onSaved, onEditingChan
     year: paper.year?.toString() ?? "",
     doi: paper.doi ?? "",
     sourceUrl: paper.sourceUrl ?? "",
+    venue: paper.venue ?? "",
+    publisher: paper.publisher ?? "",
   };
   const [draft, setDraft] = useState(original);
   const [saving, setSaving] = useState(false);
@@ -59,6 +61,8 @@ export function MetadataEditor({ paper, disabled = false, onSaved, onEditingChan
         year,
         doi: draft.doi || null,
         sourceUrl: draft.sourceUrl || null,
+        venue: draft.venue || null,
+        publisher: draft.publisher || null,
       });
       onEditingChange(false);
       onSaved(updated);
@@ -92,6 +96,14 @@ export function MetadataEditor({ paper, disabled = false, onSaved, onEditingChan
         <label htmlFor="paper-url">来源链接</label>
         <input id="paper-url" type="url" placeholder="https://…" value={draft.sourceUrl}
           onChange={(event) => change("sourceUrl", event.target.value)} />
+
+        <label htmlFor="paper-venue">期刊 / 会议</label>
+        <input id="paper-venue" value={draft.venue} placeholder="例如 Nature 或 NeurIPS"
+          onChange={(event) => change("venue", event.target.value)} />
+
+        <label htmlFor="paper-publisher">出版方</label>
+        <input id="paper-publisher" value={draft.publisher} placeholder="例如 IEEE"
+          onChange={(event) => change("publisher", event.target.value)} />
 
         <div className="metadata-actions">
           <button className="import-button" type="submit" disabled={!dirty}>

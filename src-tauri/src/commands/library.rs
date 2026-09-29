@@ -1,7 +1,10 @@
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
 
-use crate::{application::library, domain::paper::Paper};
+use crate::{
+    application::{library, metadata},
+    domain::paper::Paper,
+};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -13,6 +16,8 @@ pub struct PaperDto {
     year: Option<i32>,
     doi: Option<String>,
     source_url: Option<String>,
+    venue: Option<String>,
+    publisher: Option<String>,
     created_at: String,
     original_name: String,
     has_markdown: bool,
@@ -38,6 +43,8 @@ impl PaperDto {
             year: paper.year,
             doi: paper.doi,
             source_url: paper.source_url,
+            venue: paper.venue,
+            publisher: paper.publisher,
             created_at: paper.created_at,
             original_name,
             has_markdown,
@@ -91,6 +98,28 @@ pub async fn list_papers(app: tauri::AppHandle) -> Result<Vec<PaperDto>, String>
     .map_err(|e| e.to_string())?
 }
 
+#[tauri::command]
+pub async fn enrich_paper_metadata(
+    app: tauri::AppHandle,
+    paper_id: String,
+) -> Result<PaperDto, String> {
+    let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let paper = metadata::enrich_paper(&data_dir, &paper_id)?;
+        let artifacts = library::artifact_status(&data_dir, &paper.id)?;
+        Ok(PaperDto::new(
+            paper,
+            artifacts.original_name,
+            artifacts.has_markdown,
+            artifacts.has_translation,
+            artifacts.has_paper_tree,
+            artifacts.has_rag,
+        ))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MetadataInput {
@@ -101,6 +130,8 @@ pub struct MetadataInput {
     year: Option<i32>,
     doi: Option<String>,
     source_url: Option<String>,
+    venue: Option<String>,
+    publisher: Option<String>,
 }
 
 #[tauri::command]
@@ -120,6 +151,8 @@ pub async fn update_metadata(
                 year: input.year,
                 doi: input.doi,
                 source_url: input.source_url,
+                venue: input.venue,
+                publisher: input.publisher,
             },
         )?;
         let artifacts = library::artifact_status(&data_dir, &paper.id)?;

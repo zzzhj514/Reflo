@@ -1,4 +1,4 @@
-export type RagProvider = "openai" | "custom";
+export type RagProvider = "openai" | "qwen" | "custom";
 
 export type RagPreferences = {
   provider: RagProvider;

@@ -10,6 +10,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::library::import_pdf,
             commands::library::list_papers,
+            commands::library::enrich_paper_metadata,
             commands::library::update_metadata,
             commands::reader::open_document,
             commands::reader::save_reading_position,

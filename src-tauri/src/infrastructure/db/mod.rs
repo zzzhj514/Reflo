@@ -25,7 +25,7 @@ pub fn initialize(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
 
     let version: i64 = transaction.query_row("PRAGMA user_version;", [], |row| row.get(0))?;
 
-    if !(0..=11).contains(&version) {
+    if !(0..=12).contains(&version) {
         return Err(std::io::Error::new(
             std::io::ErrorKind::InvalidData,
             format!("不支持的数据库版本：{version}"),
@@ -87,6 +87,12 @@ pub fn initialize(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     if version < 11 {
         transaction.execute_batch(include_str!("../../../migrations/011_rag.sql"))?;
         transaction.execute_batch("PRAGMA user_version = 11;")?;
+    }
+    if version < 12 {
+        transaction.execute_batch(include_str!(
+            "../../../migrations/012_paper_publication.sql"
+        ))?;
+        transaction.execute_batch("PRAGMA user_version = 12;")?;
     }
     transaction.commit()?;
 

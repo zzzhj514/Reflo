@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import "../shared/styles/global.css";
 import { open } from "@tauri-apps/plugin-dialog";
-import { importPdf, listPapers } from "../shared/ipc/library";
+import { enrichPaperMetadata, importPdf, listPapers } from "../shared/ipc/library";
 import { ReaderWorkspace } from "../features/reader";
 import { MetadataEditor, PaperFolder } from "../features/library";
 import { MarkdownWorkspace } from "../features/conversion";
@@ -59,12 +59,21 @@ export default function App() {
         setQuery("");
         setSelectedId(result.paperId);
         setExpandedIds((current) => new Set(current).add(result.paperId));
-        setMessage(result.duplicate ? "此 PDF 已在文献库中，已选中原记录。" : "PDF 已导入并保存到本地文献库。");
+        setMessage(result.duplicate ? "此 PDF 已在文献库中，已选中原记录。" : "PDF 已导入，正在自动识别论文信息…");
         try {
           const refreshed = await listPapers();
           setPapers(refreshed);
           const imported = refreshed.find((paper) => paper.id === result.paperId);
           if (imported) setReading({ id: imported.id, title: imported.title });
+          if (!result.duplicate) {
+            enrichPaperMetadata(result.paperId).then((enriched) => {
+              setPapers((current) => current.map((paper) => paper.id === enriched.id ? enriched : paper));
+              setReading((current) => current?.id === enriched.id ? { id: enriched.id, title: enriched.title } : current);
+              setMessage("PDF 已导入，自动识别已完成；可在文献详情中核对结果。");
+            }).catch((error) => {
+              setMessage(`PDF 已导入；自动识别暂未完成，可稍后手动编辑：${String(error)}`);
+            });
+          }
         } catch (error) {
           setImportError(`文件已处理，但列表刷新失败，请重启应用：${String(error)}`);
         }

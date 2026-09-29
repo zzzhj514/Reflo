@@ -39,6 +39,8 @@ pub fn import_pdf(source: &Path, data_dir: &Path) -> Result<ImportOutcome, Strin
             year: None,
             doi: None,
             source_url: None,
+            venue: None,
+            publisher: None,
             created_at: created_at.clone(),
         };
         let document = Document {
@@ -141,6 +143,14 @@ pub fn update_metadata(
         .filter(|value| !value.is_empty());
     update.source_url = update
         .source_url
+        .map(|value| value.trim().to_owned())
+        .filter(|value| !value.is_empty());
+    update.venue = update
+        .venue
+        .map(|value| value.trim().to_owned())
+        .filter(|value| !value.is_empty());
+    update.publisher = update
+        .publisher
         .map(|value| value.trim().to_owned())
         .filter(|value| !value.is_empty());
     if let Some(value) = &update.source_url {
@@ -275,6 +285,8 @@ mod tests {
             year: Some(2026),
             doi: Some(" 10.1234/example ".into()),
             source_url: Some("https://example.org/paper".into()),
+            venue: Some(" Test Conference ".into()),
+            publisher: Some(" Test Publisher ".into()),
         }
     }
 
@@ -293,6 +305,8 @@ mod tests {
         let loaded = list_papers(&fixture.0).unwrap().remove(0);
         assert_eq!(loaded.year, Some(2026));
         assert_eq!(loaded.doi.as_deref(), Some("10.1234/example"));
+        assert_eq!(loaded.venue.as_deref(), Some("Test Conference"));
+        assert_eq!(loaded.publisher.as_deref(), Some("Test Publisher"));
         assert_eq!(
             loaded.source_url.as_deref(),
             Some("https://example.org/paper")

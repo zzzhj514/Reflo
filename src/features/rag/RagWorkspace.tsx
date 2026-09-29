@@ -48,9 +48,11 @@ export function RagWorkspace({ paper, onIndexed, onClose }: Props) {
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, asking]);
 
   function chooseProvider(provider: RagProvider) {
-    setSettings((current) => provider === "openai"
-      ? { ...current, provider, baseUrl: "https://api.openai.com/v1", model: "text-embedding-3-small" }
-      : { ...current, provider });
+    setSettings((current) => {
+      if (provider === "openai") return { ...current, provider, baseUrl: "https://api.openai.com/v1", model: "text-embedding-3-small" };
+      if (provider === "qwen") return { ...current, provider, baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1", model: "qwen3.7-text-embedding-flash" };
+      return { ...current, provider };
+    });
     setApiKey("");
     setKeyConfigured(configuredProviders.includes(provider));
   }
@@ -154,10 +156,13 @@ export function RagWorkspace({ paper, onIndexed, onClose }: Props) {
         <section>
           <h4>Embedding 模型</h4>
           <label>服务商<select value={settings.provider} onChange={(event) => chooseProvider(event.target.value as RagProvider)}>
-            <option value="openai">OpenAI</option><option value="custom">自定义兼容 API</option>
+            <option value="openai">OpenAI</option>
+            <option value="qwen">Qwen（阿里云百炼）</option>
+            <option value="custom">自定义兼容 API</option>
           </select></label>
           <label>API Base URL<input value={settings.baseUrl} onChange={(event) => setSettings({ ...settings, baseUrl: event.target.value })} /></label>
           <label>Embedding 模型<input value={settings.model} onChange={(event) => setSettings({ ...settings, model: event.target.value })} /></label>
+          {settings.provider === "qwen" && <p className="muted">默认使用百炼公共兼容端点；也可填入业务空间专属 Base URL。</p>}
           <div className="rag-settings-grid">
             <label>每片字符数<input type="number" min={500} max={8000} value={settings.chunkChars}
               onChange={(event) => setSettings({ ...settings, chunkChars: Number(event.target.value) })} /></label>

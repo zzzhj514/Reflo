@@ -7,6 +7,8 @@ export type Paper = {
   year: number | null;
   doi: string | null;
   sourceUrl: string | null;
+  venue: string | null;
+  publisher: string | null;
   createdAt: string;
   originalName: string;
   hasMarkdown: boolean;
