@@ -18,6 +18,7 @@ pub struct PaperDto {
     has_markdown: bool,
     has_translation: bool,
     has_paper_tree: bool,
+    has_rag: bool,
 }
 
 impl PaperDto {
@@ -27,6 +28,7 @@ impl PaperDto {
         has_markdown: bool,
         has_translation: bool,
         has_paper_tree: bool,
+        has_rag: bool,
     ) -> Self {
         Self {
             revision: paper.revision,
@@ -41,6 +43,7 @@ impl PaperDto {
             has_markdown,
             has_translation,
             has_paper_tree,
+            has_rag,
         }
     }
 }
@@ -79,6 +82,7 @@ pub async fn list_papers(app: tauri::AppHandle) -> Result<Vec<PaperDto>, String>
                     artifacts.has_markdown,
                     artifacts.has_translation,
                     artifacts.has_paper_tree,
+                    artifacts.has_rag,
                 ))
             })
             .collect()
@@ -125,6 +129,7 @@ pub async fn update_metadata(
             artifacts.has_markdown,
             artifacts.has_translation,
             artifacts.has_paper_tree,
+            artifacts.has_rag,
         ))
     })
     .await

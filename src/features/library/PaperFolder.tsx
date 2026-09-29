@@ -11,11 +11,13 @@ type Props = {
   onOpenMarkdown: () => void;
   onOpenTranslation: () => void;
   onOpenPaperTree: () => void;
+  onOpenRag: () => void;
 };
 
 export function PaperFolder({
   paper, expanded, selected, disabled, onSelect, onToggle, onOpenPdf, onOpenMarkdown, onOpenTranslation,
   onOpenPaperTree,
+  onOpenRag,
 }: Props) {
   return (
     <li className="paper-folder">
@@ -54,6 +56,13 @@ export function PaperFolder({
               <span className="artifact-icon tree" aria-hidden="true">树</span>
               <span><strong>Paper Tree</strong><small>{paper.hasPaperTree ? "论文结构树" : "使用模板梳理论文结构"}</small></span>
               <span className={`artifact-status ${paper.hasPaperTree ? "ready" : "pending"}`}>{paper.hasPaperTree ? "已保存" : "待填写"}</span>
+            </button>
+          </li>
+          <li>
+            <button className="paper-artifact" disabled={disabled} onClick={onOpenRag}>
+              <span className="artifact-icon rag" aria-hidden="true">问</span>
+              <span><strong>论文问答</strong><small>{paper.hasRag ? "基于当前论文检索回答" : "为论文创建独立 RAG"}</small></span>
+              <span className={`artifact-status ${paper.hasRag ? "ready" : "pending"}`}>{paper.hasRag ? "已索引" : "待索引"}</span>
             </button>
           </li>
           <li>

@@ -327,6 +327,15 @@ pub fn complete_model(
     system: &str,
     user: &str,
 ) -> Result<ModelCompletion, String> {
+    complete_model_for(data_dir, system, user, "Paper Tree 生成")
+}
+
+pub fn complete_model_for(
+    data_dir: &Path,
+    system: &str,
+    user: &str,
+    operation: &str,
+) -> Result<ModelCompletion, String> {
     let mut preferences = translations::settings(&data_dir.join("reflo.sqlite"))
         .map(from_record)
         .map_err(|error| error.to_string())?;
@@ -337,14 +346,8 @@ pub fn complete_model(
     )
     .map_err(|error| error.to_string())?
     .ok_or("请先在翻译设置中保存 API Key")?;
-    let content = request_chat_completion(
-        &client()?,
-        &preferences,
-        &api_key,
-        system,
-        user,
-        "Paper Tree 生成",
-    )?;
+    let content =
+        request_chat_completion(&client()?, &preferences, &api_key, system, user, operation)?;
     Ok(ModelCompletion {
         content,
         provider: preferences.provider,

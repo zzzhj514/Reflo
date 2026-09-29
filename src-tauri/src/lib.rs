@@ -27,7 +27,13 @@ pub fn run() {
             commands::translation::translate_markdown_document,
             commands::paper_tree::get_paper_tree,
             commands::paper_tree::save_paper_tree,
-            commands::paper_tree::generate_paper_tree
+            commands::paper_tree::generate_paper_tree,
+            commands::rag::get_rag_settings,
+            commands::rag::save_rag_settings,
+            commands::rag::get_rag_index_status,
+            commands::rag::index_paper_rag,
+            commands::rag::list_rag_messages,
+            commands::rag::ask_paper_rag
         ])
         .setup(|app| {
             let data_dir = app.path().app_data_dir()?;

@@ -6,6 +6,7 @@ import { ReaderWorkspace } from "../features/reader";
 import { MetadataEditor, PaperFolder } from "../features/library";
 import { MarkdownWorkspace } from "../features/conversion";
 import { PaperTreeWorkspace } from "../features/paper-tree";
+import { RagWorkspace } from "../features/rag";
 import type { Paper } from "../shared/contracts/library";
 
 export default function App() {
@@ -21,6 +22,7 @@ export default function App() {
   const [reading, setReading] = useState<{ id: string; title: string } | null>(null);
   const [convertingPaper, setConvertingPaper] = useState<Paper | null>(null);
   const [paperTreePaper, setPaperTreePaper] = useState<Paper | null>(null);
+  const [ragPaper, setRagPaper] = useState<Paper | null>(null);
   const busy = useRef(false);
 
   useEffect(() => {
@@ -90,7 +92,7 @@ export default function App() {
     return <MarkdownWorkspace key={convertingPaper.id} paper={convertingPaper}
       onConverted={() => {
         setPapers((current) => current.map((paper) => paper.id === convertingPaper.id
-          ? { ...paper, hasMarkdown: true, hasTranslation: false }
+          ? { ...paper, hasMarkdown: true, hasTranslation: false, hasRag: false }
           : paper));
       }}
       onTranslated={() => {
@@ -110,6 +112,16 @@ export default function App() {
         setPaperTreePaper((current) => current ? { ...current, hasPaperTree: true } : current);
       }}
       onClose={() => setPaperTreePaper(null)} />;
+  }
+
+  if (ragPaper) {
+    return <RagWorkspace key={ragPaper.id} paper={ragPaper}
+      onIndexed={() => {
+        setPapers((current) => current.map((paper) => paper.id === ragPaper.id
+          ? { ...paper, hasRag: true } : paper));
+        setRagPaper((current) => current ? { ...current, hasRag: true } : current);
+      }}
+      onClose={() => setRagPaper(null)} />;
   }
 
   return (
@@ -199,6 +211,10 @@ export default function App() {
               onOpenPaperTree={() => {
                 setSelectedId(paper.id);
                 setPaperTreePaper(paper);
+              }}
+              onOpenRag={() => {
+                setSelectedId(paper.id);
+                setRagPaper(paper);
               }} />
           ))}
         </ul>
@@ -215,6 +231,8 @@ export default function App() {
               onClick={() => setConvertingPaper(selectedPaper)}>转为 Markdown</button>
             <button className="secondary-button" disabled={editing || isSelecting}
               onClick={() => setPaperTreePaper(selectedPaper)}>Paper Tree</button>
+            <button className="secondary-button" disabled={editing || isSelecting}
+              onClick={() => setRagPaper(selectedPaper)}>论文问答</button>
           </div>
         )}
         {selectedPaper ? (

@@ -68,6 +68,7 @@ pub fn save_markdown(
         "DELETE FROM markdown_translations WHERE document_id=?1",
         [document_id],
     )?;
+    connection.execute("DELETE FROM rag_chunks WHERE document_id=?1", [document_id])?;
     find_markdown(db, document_id)?.ok_or(rusqlite::Error::QueryReturnedNoRows)
 }
 

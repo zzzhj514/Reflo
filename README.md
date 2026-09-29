@@ -18,6 +18,8 @@ Reflo 是独立的桌面论文研究应用，首发 macOS，并保留后续 Wind
 
 每篇论文可打开独立的 Paper Tree 工作区。首次打开会载入以 Abstract、Introduction、Method、Experiments、Limitation 为骨架的结构化模板，可逐层编辑标题和说明、添加同级或子级节点，并保存到 SQLite。填写过程中可随时切换到可折叠的横向树状视图。树状画布使用连续 SVG 曲线连接父子节点，支持拖拽、滚轮与触控板平移、⌘/Ctrl + 滚轮或键盘缩放，以及一键适应窗口。已转换 Markdown 的论文还可复用翻译模块中的 OpenAI-compatible 模型设置一键生成 Paper Tree：短文直接分析，长文先分段提取证据再合成为结构树，模型输出经 JSON 结构与节点规则校验后才会保存。
 
+每篇已转换 Markdown 的论文可以建立独立 RAG 索引并进入“论文问答”工作区。Markdown 按标题路径和可配置字符数切分，使用 OpenAI-compatible Embeddings API 批量生成向量并保存在 SQLite；提问时结合余弦相似度和关键词命中进行混合排序，再由现有 Chat Completions 模型依据召回片段回答。回答附带可展开的章节与原文引用，对话按论文持久化。Embedding 服务、模型、分块大小和召回数量可独立配置，API Key 保存在 Reflo 数据库；Markdown 重新转换后旧索引自动失效。
+
 导入阶段仅检查标准文件头，损坏文件由阅读器显示加载错误；加密 PDF 暂需先解密。正常错误会清理本次导入产物；进程异常退出后的孤立文件自动恢复尚未实现。
 
 ## 开发与验证
@@ -46,6 +48,7 @@ cargo test --manifest-path src-tauri/Cargo.toml --lib
 - PDF 阅读、高亮与批注。
 - 翻译、Markdown 转换与原文定位。
 - 跨论文关系与对比阅读。
+- 将多篇论文组成主题，并在现有论文级 RAG 基础上进行跨论文问答。
 
 ## 技术方向
 
