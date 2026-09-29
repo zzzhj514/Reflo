@@ -1,6 +1,16 @@
 # Reflo
 
-Reflo 是独立的桌面论文研究应用，首发 macOS，并保留后续 Windows 支持能力。
+Reflo 是独立的桌面论文研究应用，首发 macOS。它将 PDF 阅读、元数据管理、Markdown 转换、翻译、Paper Tree 和多论文 RAG 问答组织在同一本地工作区中，并保留后续 Windows 支持能力。
+
+## 已实现能力
+
+- PDF 导入、SHA-256 去重、自动元数据补全与分组管理。
+- PDF.js 单页、双页、连续滚动和缩略图阅读，以及缩放、文字选择、高亮与批注。
+- MinerU PDF 转 Markdown、排版/源码双模式和全文翻译。
+- 可编辑、可缩放的 Paper Tree，并支持大模型从 Markdown 自动生成。
+- 单篇独立索引，以及任意 1–20 篇已索引论文的联合 RAG 问答。
+- Chat 模型内置 OpenAI、DeepSeek，Embedding 内置 OpenAI、Qwen，并支持自定义 OpenAI-compatible 服务。
+- 本地持久化的论文数据、阅读进度、批注、对话历史和研究待办。
 
 ## 当前状态
 
@@ -26,7 +36,7 @@ Reflo 是独立的桌面论文研究应用，首发 macOS，并保留后续 Wind
 
 ## 开发与验证
 
-需要 Node.js、Rust 和 macOS 开发工具。在项目根目录运行：
+需要 Node.js、Rust、Xcode Command Line Tools 和 macOS 开发工具。建议使用 Rust stable；在项目根目录运行：
 
 ```bash
 npm ci
@@ -44,22 +54,49 @@ cargo test --manifest-path src-tauri/Cargo.toml --lib
 
 `predev` 和 `prebuild` 自动复制 PDF.js 配套资源到 `public/pdfjs/`；该目录为生成内容，不提交 Git。构建本地测试应用可运行 `npm run tauri build -- --debug --bundles app`，输出位于 `src-tauri/target/debug/bundle/macos/Reflo.app`。
 
+## 构建 macOS DMG
+
+项目已经在 `tauri.conf.json` 中启用 DMG bundle。构建当前 Mac 架构的本地测试版：
+
+```bash
+CARGO_BUILD_JOBS=1 npm run tauri build -- --bundles dmg --no-sign
+```
+
+`CARGO_BUILD_JOBS=1` 可避免部分 nightly 工具链并行编译 proc-macro 时出现缓存异常。Apple Silicon 输出位于：
+
+```text
+src-tauri/target/release/bundle/dmg/Reflo_0.1.0_aarch64.dmg
+```
+
+构建同时支持 Intel 与 Apple Silicon 的通用版本：
+
+```bash
+rustup target add aarch64-apple-darwin x86_64-apple-darwin
+CARGO_BUILD_JOBS=1 npm run tauri build -- --target universal-apple-darwin --bundles dmg --no-sign
+```
+
+`--no-sign` 适合本机测试。对外分发时应移除该参数，使用 Apple Developer 的 `Developer ID Application` 证书完成签名和 notarization。签名证书、Apple 密码、API Key 与 Token 必须通过本机环境变量或应用设置提供，不能提交到 Git。
+
+## 本地数据与凭据
+
+论文、Markdown、索引和 API 凭据保存在 Reflo 的 macOS 应用数据目录，不位于仓库。API Key 当前按服务商明文保存在本机 `reflo.sqlite` 中，不使用钥匙串，也不会被打包进 DMG。`.env`、构建输出、依赖目录和本地数据库均不应提交。
+
 ## 计划功能
 
-- PDF 文献管理、分类与元数据识别。
-- PDF 阅读、高亮与批注。
-- 翻译、Markdown 转换与原文定位。
+- 标签、智能分类规则和批量元数据校正。
+- Markdown 与 PDF 页码、段落之间的双向原文定位。
 - 跨论文关系与对比阅读。
-- 将多篇论文组成主题，并在现有论文级 RAG 基础上进行跨论文问答。
+- 将临时多论文问答范围保存为可复用的研究主题。
+- Windows 打包、应用签名、自动更新和版本发布流程。
 
 ## 技术方向
 
 - 桌面与本地服务：Tauri 2 + Rust。
 - 界面：React + TypeScript + Vite。
-- 本地存储与检索：SQLite + FTS5。
+- 本地存储与检索：SQLite；RAG 向量以 JSON 持久化并使用余弦相似度与关键词混合召回。
 - PDF 阅读：PDF.js。
 - PDF 解析：API 优先，暂定 MinerU。
-- 论文结构与关系展示：React Flow。
+- 论文结构与关系展示：React + SVG 树状画布。
 
 ## 代码结构
 
