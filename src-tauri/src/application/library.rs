@@ -196,6 +196,7 @@ mod tests {
         let artifacts = artifact_status(&fixture.0, &imported.paper_id).unwrap();
         assert_eq!(artifacts.original_name, "example.pdf");
         assert!(!artifacts.has_markdown);
+        assert!(!artifacts.has_translation);
         let renamed = fixture.0.join("renamed.pdf");
         fs::copy(&source, &renamed).unwrap();
         let duplicate = import_pdf(&renamed, &fixture.0).unwrap();

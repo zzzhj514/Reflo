@@ -64,6 +64,10 @@ pub fn save_markdown(
         "INSERT INTO markdown_documents(document_id,relative_path,processor,model) VALUES(?1,?2,?3,?4) ON CONFLICT(document_id) DO UPDATE SET relative_path=excluded.relative_path, processor=excluded.processor, model=excluded.model, updated_at=CURRENT_TIMESTAMP",
         params![document_id, relative_path, processor, model],
     )?;
+    connection.execute(
+        "DELETE FROM markdown_translations WHERE document_id=?1",
+        [document_id],
+    )?;
     find_markdown(db, document_id)?.ok_or(rusqlite::Error::QueryReturnedNoRows)
 }
 

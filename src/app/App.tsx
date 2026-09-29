@@ -88,7 +88,12 @@ export default function App() {
     return <MarkdownWorkspace key={convertingPaper.id} paper={convertingPaper}
       onConverted={() => {
         setPapers((current) => current.map((paper) => paper.id === convertingPaper.id
-          ? { ...paper, hasMarkdown: true }
+          ? { ...paper, hasMarkdown: true, hasTranslation: false }
+          : paper));
+      }}
+      onTranslated={() => {
+        setPapers((current) => current.map((paper) => paper.id === convertingPaper.id
+          ? { ...paper, hasTranslation: true }
           : paper));
       }}
       onClose={() => setConvertingPaper(null)} />;
@@ -171,6 +176,10 @@ export default function App() {
                 setReading({ id: paper.id, title: paper.title });
               }}
               onOpenMarkdown={() => {
+                setSelectedId(paper.id);
+                setConvertingPaper(paper);
+              }}
+              onOpenTranslation={() => {
                 setSelectedId(paper.id);
                 setConvertingPaper(paper);
               }} />

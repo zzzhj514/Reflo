@@ -22,7 +22,9 @@ pub fn run() {
             commands::conversion::convert_pdf_to_markdown,
             commands::translation::get_translation_settings,
             commands::translation::save_translation_settings,
-            commands::translation::translate_text
+            commands::translation::translate_text,
+            commands::translation::get_markdown_translation,
+            commands::translation::translate_markdown_document
         ])
         .setup(|app| {
             let data_dir = app.path().app_data_dir()?;

@@ -7,9 +7,12 @@ import remarkMath from "remark-math";
 import "katex/dist/katex.min.css";
 import type { Paper } from "../../shared/contracts/library";
 import type { MarkdownDocument, MinerUPreferences } from "../../shared/contracts/conversion";
+import type { MarkdownTranslationDocument } from "../../shared/contracts/translation";
 import { convertPdfToMarkdown, getMarkdownDocument, getMineruSettings, saveMineruSettings } from "../../shared/ipc/conversion";
+import { getMarkdownTranslation, translateMarkdownDocument } from "../../shared/ipc/translation";
+import { TranslationSettings } from "../reader/components/TranslationSettings";
 
-type Props = { paper: Paper; onConverted?: () => void; onClose: () => void };
+type Props = { paper: Paper; onConverted?: () => void; onTranslated?: () => void; onClose: () => void };
 
 const DEFAULT_SETTINGS: MinerUPreferences = {
   model: "vlm", language: "en", enableOcr: false, enableFormula: true, enableTable: true,
@@ -20,13 +23,17 @@ const LANGUAGES: Array<[MinerUPreferences["language"], string]> = [
   ["fr", "法文"], ["de", "德文"], ["es", "西班牙文"],
 ];
 
-export function MarkdownWorkspace({ paper, onConverted, onClose }: Props) {
+export function MarkdownWorkspace({ paper, onConverted, onTranslated, onClose }: Props) {
   const [document, setDocument] = useState<MarkdownDocument | null>(null);
+  const [translation, setTranslation] = useState<MarkdownTranslationDocument | null>(null);
   const [loading, setLoading] = useState(true);
   const [converting, setConverting] = useState(false);
+  const [translating, setTranslating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showTranslationSettings, setShowTranslationSettings] = useState(false);
   const [mode, setMode] = useState<"preview" | "source">("preview");
+  const [version, setVersion] = useState<"original" | "translated">("original");
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [apiToken, setApiToken] = useState("");
@@ -35,12 +42,13 @@ export function MarkdownWorkspace({ paper, onConverted, onClose }: Props) {
 
   useEffect(() => {
     let active = true;
-    Promise.all([getMarkdownDocument(paper.id), getMineruSettings()])
-      .then(([markdown, mineru]) => {
+    Promise.all([getMarkdownDocument(paper.id), getMineruSettings(), getMarkdownTranslation(paper.id)])
+      .then(([markdown, mineru, translated]) => {
         if (!active) return;
         setDocument(markdown);
         setSettings(mineru.preferences);
         setTokenConfigured(mineru.tokenConfigured);
+        setTranslation(translated);
         setShowSettings(!markdown);
       })
       .catch((cause) => {
@@ -76,6 +84,8 @@ export function MarkdownWorkspace({ paper, onConverted, onClose }: Props) {
       await persistSettings();
       const result = await convertPdfToMarkdown(paper.id);
       setDocument(result);
+      setTranslation(null);
+      setVersion("original");
       onConverted?.();
       setShowSettings(false);
       setMode("preview");
@@ -83,14 +93,32 @@ export function MarkdownWorkspace({ paper, onConverted, onClose }: Props) {
     finally { setConverting(false); }
   }
 
+  async function translateWholeDocument() {
+    if (!document || translating) return;
+    setTranslating(true);
+    setError(null);
+    try {
+      const result = await translateMarkdownDocument(paper.id);
+      setTranslation(result);
+      onTranslated?.();
+      setVersion("translated");
+      setShowTranslationSettings(false);
+    } catch (cause) {
+      setError(String(cause));
+    } finally {
+      setTranslating(false);
+    }
+  }
+
   function imageSource(source?: string) {
     if (!source) return source;
     const normalized = source.replace(/^\.\//, "");
     if (!normalized.startsWith("assets/") || normalized.split("/").includes("..")) return source;
-    return convertFileSrc(`${document?.assetBasePath}/${normalized}`);
+    return convertFileSrc(`${activeDocument?.assetBasePath}/${normalized}`);
   }
 
-  const busy = saving || converting;
+  const activeDocument = version === "translated" && translation ? translation : document;
+  const busy = saving || converting || translating;
   const canConvert = tokenConfigured || Boolean(apiToken.trim());
 
   return (
@@ -138,30 +166,47 @@ export function MarkdownWorkspace({ paper, onConverted, onClose }: Props) {
         {!loading && document && !showSettings && (
           <div className="markdown-result">
             <div className="markdown-result-toolbar">
-              <span className="muted">{document.processor} · {document.model} · {document.updatedAt}</span>
+              <span className="muted">{version === "translated" && translation
+                ? `译文 · ${translation.provider} · ${translation.model} · ${translation.updatedAt}`
+                : `${document.processor} · ${document.model} · ${document.updatedAt}`}</span>
               <div>
+                {translation && <div className="markdown-mode" aria-label="Markdown 文档版本">
+                  <button aria-pressed={version === "original"} onClick={() => setVersion("original")}>原文</button>
+                  <button aria-pressed={version === "translated"} onClick={() => setVersion("translated")}>译文</button>
+                </div>}
                 <div className="markdown-mode" aria-label="Markdown 显示模式">
                   <button aria-pressed={mode === "preview"} onClick={() => setMode("preview")}>阅读</button>
                   <button aria-pressed={mode === "source"} onClick={() => setMode("source")}>源码</button>
                 </div>
+                <button className="primary-button" disabled={busy} onClick={() => void translateWholeDocument()}>
+                  {translating ? "正在翻译全文…" : translation ? "重新翻译" : "一键翻译"}
+                </button>
+                <button className="secondary-button" disabled={busy} onClick={() => setShowTranslationSettings(true)}>翻译设置</button>
                 <button className="secondary-button" onClick={() => setShowSettings(true)}>转换设置</button>
                 <button className="secondary-button" onClick={() => {
-                  void navigator.clipboard.writeText(document.markdown).then(() => {
+                  void navigator.clipboard.writeText(activeDocument?.markdown ?? "").then(() => {
                     setCopied(true); window.setTimeout(() => setCopied(false), 1500);
                   });
                 }}>{copied ? "已复制" : "复制 Markdown"}</button>
               </div>
             </div>
-            <p className="markdown-path">本地文件：{document.relativePath}</p>
-            {mode === "source" ? <pre className="markdown-source">{document.markdown}</pre> : (
+            {translating && <p className="markdown-translation-progress" role="status">正在按段落翻译整篇 Markdown，长文档可能需要几分钟，请保持窗口开启。</p>}
+            <p className="markdown-path">本地文件：{activeDocument?.relativePath}</p>
+            {mode === "source" ? <pre className="markdown-source">{activeDocument?.markdown}</pre> : (
               <article className="markdown-preview">
                 <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}
                   components={{ img: ({ src, ...props }) => <img {...props} src={imageSource(src)} /> }}>
-                  {document.markdown}
+                  {activeDocument?.markdown}
                 </ReactMarkdown>
               </article>
             )}
           </div>
+        )}
+        {showTranslationSettings && (
+          <aside className="markdown-translation-settings" aria-label="翻译设置">
+            <header><h3>翻译设置</h3><button aria-label="关闭翻译设置" onClick={() => setShowTranslationSettings(false)}>×</button></header>
+            <TranslationSettings />
+          </aside>
         )}
       </main>
     </div>

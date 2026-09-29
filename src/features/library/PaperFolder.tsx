@@ -9,10 +9,11 @@ type Props = {
   onToggle: () => void;
   onOpenPdf: () => void;
   onOpenMarkdown: () => void;
+  onOpenTranslation: () => void;
 };
 
 export function PaperFolder({
-  paper, expanded, selected, disabled, onSelect, onToggle, onOpenPdf, onOpenMarkdown,
+  paper, expanded, selected, disabled, onSelect, onToggle, onOpenPdf, onOpenMarkdown, onOpenTranslation,
 }: Props) {
   return (
     <li className="paper-folder">
@@ -54,10 +55,10 @@ export function PaperFolder({
             </button>
           </li>
           <li>
-            <button className="paper-artifact planned" disabled aria-disabled="true">
+            <button className="paper-artifact" disabled={disabled} onClick={onOpenTranslation}>
               <span className="artifact-icon translation" aria-hidden="true">译</span>
-              <span><strong>译文</strong><small>与原文段落对齐的翻译版本</small></span>
-              <span className="artifact-status planned">后续</span>
+              <span><strong>译文</strong><small>{paper.hasTranslation ? "Markdown 全文翻译结果" : "在 Markdown 工作区一键生成"}</small></span>
+              <span className={`artifact-status ${paper.hasTranslation ? "ready" : "pending"}`}>{paper.hasTranslation ? "已生成" : "待翻译"}</span>
             </button>
           </li>
         </ul>

@@ -10,8 +10,9 @@ export type Paper = {
   createdAt: string;
   originalName: string;
   hasMarkdown: boolean;
+  hasTranslation: boolean;
 };
 
 export type ImportResult = { paperId: string; duplicate: boolean };
 
-export type MetadataInput = Omit<Paper, "revision" | "createdAt" | "originalName" | "hasMarkdown"> & { expectedRevision: number };
+export type MetadataInput = Omit<Paper, "revision" | "createdAt" | "originalName" | "hasMarkdown" | "hasTranslation"> & { expectedRevision: number };

@@ -22,3 +22,14 @@ export type TranslationResult = {
   model: string;
   truncated: boolean;
 };
+
+export type MarkdownTranslationDocument = {
+  documentId: string;
+  relativePath: string;
+  markdown: string;
+  provider: TranslationProvider;
+  model: string;
+  targetLanguage: string;
+  updatedAt: string;
+  assetBasePath: string;
+};
