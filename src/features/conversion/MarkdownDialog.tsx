@@ -20,7 +20,7 @@ const LANGUAGES: Array<[MinerUPreferences["language"], string]> = [
   ["fr", "法文"], ["de", "德文"], ["es", "西班牙文"],
 ];
 
-export function MarkdownDialog({ paper, onConverted, onClose }: Props) {
+export function MarkdownWorkspace({ paper, onConverted, onClose }: Props) {
   const [document, setDocument] = useState<MarkdownDocument | null>(null);
   const [loading, setLoading] = useState(true);
   const [converting, setConverting] = useState(false);
@@ -94,14 +94,15 @@ export function MarkdownDialog({ paper, onConverted, onClose }: Props) {
   const canConvert = tokenConfigured || Boolean(apiToken.trim());
 
   return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={(event) => {
-      if (event.target === event.currentTarget && !busy) onClose();
-    }}>
-      <section className="markdown-dialog" role="dialog" aria-modal="true" aria-labelledby="markdown-dialog-title">
-        <header>
-          <div><h2 id="markdown-dialog-title">PDF 转 Markdown</h2><p title={paper.title}>{paper.title}</p></div>
-          <button aria-label="关闭" disabled={busy} onClick={onClose}>×</button>
-        </header>
+    <div className="markdown-workspace" aria-labelledby="markdown-workspace-title">
+      <header className="markdown-heading">
+        <button className="secondary-button" disabled={busy} onClick={onClose}>返回文献库</button>
+        <div>
+          <h2 id="markdown-workspace-title">Markdown</h2>
+          <p title={paper.title}>{paper.title}</p>
+        </div>
+      </header>
+      <main className="markdown-workspace-body">
 
         {loading && <p className="dialog-status" role="status">正在读取转换记录…</p>}
         {error && <p className="form-error dialog-error" role="alert">{error}</p>}
@@ -162,7 +163,7 @@ export function MarkdownDialog({ paper, onConverted, onClose }: Props) {
             )}
           </div>
         )}
-      </section>
+      </main>
     </div>
   );
 }

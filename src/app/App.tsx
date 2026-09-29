@@ -4,7 +4,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { importPdf, listPapers } from "../shared/ipc/library";
 import { ReaderWorkspace } from "../features/reader";
 import { MetadataEditor, PaperFolder } from "../features/library";
-import { MarkdownDialog } from "../features/conversion";
+import { MarkdownWorkspace } from "../features/conversion";
 import type { Paper } from "../shared/contracts/library";
 
 export default function App() {
@@ -82,6 +82,16 @@ export default function App() {
   if (reading) {
     return <ReaderWorkspace key={reading.id} paperId={reading.id} title={reading.title}
       onClose={() => setReading(null)} />;
+  }
+
+  if (convertingPaper) {
+    return <MarkdownWorkspace key={convertingPaper.id} paper={convertingPaper}
+      onConverted={() => {
+        setPapers((current) => current.map((paper) => paper.id === convertingPaper.id
+          ? { ...paper, hasMarkdown: true }
+          : paper));
+      }}
+      onClose={() => setConvertingPaper(null)} />;
   }
 
   return (
@@ -194,17 +204,6 @@ export default function App() {
           <p className="muted">选择一篇文献，查看详细信息。</p>
         )}
       </aside>
-      {convertingPaper && (
-        <MarkdownDialog
-          paper={convertingPaper}
-          onConverted={() => {
-            setPapers((current) => current.map((paper) => paper.id === convertingPaper.id
-              ? { ...paper, hasMarkdown: true }
-              : paper));
-          }}
-          onClose={() => setConvertingPaper(null)}
-        />
-      )}
     </div>
   );
 }

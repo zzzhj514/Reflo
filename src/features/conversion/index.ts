@@ -1,1 +1,1 @@
-export { MarkdownDialog } from "./MarkdownDialog";
+export { MarkdownWorkspace } from "./MarkdownDialog";
