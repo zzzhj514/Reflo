@@ -161,16 +161,17 @@ pub fn index_summary(
         .optional()
 }
 
-pub fn ensure_paper_session(
+pub fn ensure_scope_session(
     database: &Path,
-    paper_id: &str,
+    scope_type: &str,
+    scope_id: &str,
     title: &str,
 ) -> rusqlite::Result<String> {
     let connection = open_connection(database)?;
     if let Some(id) = connection
         .query_row(
-            "SELECT id FROM rag_sessions WHERE scope_type='paper' AND scope_id=?1",
-            [paper_id],
+            "SELECT id FROM rag_sessions WHERE scope_type=?1 AND scope_id=?2",
+            params![scope_type, scope_id],
             |row| row.get(0),
         )
         .optional()?
@@ -179,8 +180,8 @@ pub fn ensure_paper_session(
     }
     let id = uuid::Uuid::new_v4().to_string();
     connection.execute(
-        "INSERT INTO rag_sessions(id,scope_type,scope_id,title) VALUES(?1,'paper',?2,?3)",
-        params![id, paper_id, title],
+        "INSERT INTO rag_sessions(id,scope_type,scope_id,title) VALUES(?1,?2,?3,?4)",
+        params![id, scope_type, scope_id, title],
     )?;
     Ok(id)
 }
@@ -210,15 +211,19 @@ pub fn append_exchange(
     Ok(())
 }
 
-pub fn paper_messages(database: &Path, paper_id: &str) -> rusqlite::Result<Vec<RagMessageRecord>> {
+pub fn scope_messages(
+    database: &Path,
+    scope_type: &str,
+    scope_id: &str,
+) -> rusqlite::Result<Vec<RagMessageRecord>> {
     let connection = open_connection(database)?;
     let mut statement = connection.prepare(
         "SELECT m.id,m.role,m.content,m.citations_json,m.created_at FROM rag_messages m
-         JOIN rag_sessions s ON s.id=m.session_id WHERE s.scope_type='paper' AND s.scope_id=?1
-         ORDER BY m.rowid",
+         JOIN rag_sessions s ON s.id=m.session_id
+         WHERE s.scope_type=?1 AND s.scope_id=?2 ORDER BY m.rowid",
     )?;
     let messages = statement
-        .query_map([paper_id], |row| {
+        .query_map(params![scope_type, scope_id], |row| {
             Ok(RagMessageRecord {
                 id: row.get(0)?,
                 role: row.get(1)?,
@@ -262,9 +267,9 @@ mod tests {
         assert_eq!(indexed_chunks(&database, "p").unwrap().len(), 1);
         assert_eq!(index_summary(&database, "p").unwrap().unwrap().0, 1);
 
-        let session = ensure_paper_session(&database, "p", "Paper").unwrap();
+        let session = ensure_scope_session(&database, "paper", "p", "Paper").unwrap();
         append_exchange(&database, &session, "Question", "Answer", "[]").unwrap();
-        let messages = paper_messages(&database, "p").unwrap();
+        let messages = scope_messages(&database, "paper", "p").unwrap();
         assert_eq!(messages.len(), 2);
         assert_eq!(messages[0].role, "user");
         assert_eq!(messages[1].role, "assistant");

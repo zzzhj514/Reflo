@@ -8,7 +8,7 @@ export const getRagIndexStatus = (paperId: string) =>
   invoke<RagIndexStatus>("get_rag_index_status", { paperId });
 export const indexPaperRag = (paperId: string) =>
   invoke<RagIndexStatus>("index_paper_rag", { paperId });
-export const listRagMessages = (paperId: string) =>
-  invoke<RagMessage[]>("list_rag_messages", { paperId });
-export const askPaperRag = (paperId: string, question: string) =>
-  invoke<RagAnswer>("ask_paper_rag", { paperId, question });
+export const listRagMessages = (paperIds: string[]) =>
+  invoke<RagMessage[]>("list_rag_messages", { paperIds });
+export const askPaperRag = (paperIds: string[], question: string) =>
+  invoke<RagAnswer>("ask_paper_rag", { paperIds, question });

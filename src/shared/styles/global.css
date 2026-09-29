@@ -502,6 +502,20 @@ button:disabled { cursor: not-allowed; }
 .rag-message { margin-bottom: 22px; }
 .rag-message > header { margin-bottom: 7px; color: #475569; font-size: 12px; font-weight: 700; }
 .rag-message > p { margin: 0; line-height: 1.75; white-space: pre-wrap; overflow-wrap: anywhere; }
+.rag-markdown { font-size: 14px; line-height: 1.75; overflow-wrap: anywhere; }
+.rag-markdown > :first-child { margin-top: 0; }
+.rag-markdown > :last-child { margin-bottom: 0; }
+.rag-markdown p { margin: .75em 0; }
+.rag-markdown h1, .rag-markdown h2, .rag-markdown h3, .rag-markdown h4 { margin: 1.25em 0 .55em; line-height: 1.35; }
+.rag-markdown h1 { font-size: 1.45em; }.rag-markdown h2 { font-size: 1.28em; }.rag-markdown h3 { font-size: 1.14em; }
+.rag-markdown ul, .rag-markdown ol { padding-left: 1.6em; }
+.rag-markdown code { padding: .14em .34em; border-radius: 4px; background: #f1f5f9; font: .9em ui-monospace, SFMono-Regular, Menlo, monospace; }
+.rag-markdown pre { padding: 13px 15px; border-radius: 8px; background: #0f172a; color: #e2e8f0; overflow-x: auto; }
+.rag-markdown pre code { padding: 0; background: transparent; color: inherit; }
+.rag-markdown table { display: block; max-width: 100%; border-collapse: collapse; overflow-x: auto; }
+.rag-markdown th, .rag-markdown td { padding: 6px 9px; border: 1px solid #d1d5db; text-align: left; }
+.rag-markdown blockquote { margin: .9em 0; padding: .1em .9em; border-left: 3px solid #93c5fd; color: #475569; }
+.rag-markdown .katex-display { max-width: 100%; overflow-x: auto; overflow-y: hidden; }
 .rag-message.user { margin-left: 20%; padding: 12px 15px; border-radius: 12px 12px 2px 12px; background: #e0ecff; }
 .rag-message.assistant { padding: 16px 18px; border: 1px solid #e2e8f0; border-radius: 2px 12px 12px; background: #fff; box-shadow: 0 2px 8px #0f172a0a; }
 .rag-message.pending { color: #64748b; }
@@ -513,6 +527,16 @@ button:disabled { cursor: not-allowed; }
 .rag-composer textarea { flex: 1; min-height: 48px; max-height: 150px; padding: 11px 12px; border: 1px solid #cbd5e1; border-radius: 10px; resize: vertical; line-height: 1.45; }
 .rag-composer button { height: 42px; }
 .rag-settings-panel { position: absolute; z-index: 40; top: 70px; right: 18px; bottom: 18px; width: min(430px, calc(100vw - 36px)); padding: 0 18px 22px; border: 1px solid #d1d5db; border-radius: 12px; background: #fff; box-shadow: 0 8px 30px #0003; overflow-y: auto; }
+.rag-scope-panel { position: absolute; z-index: 39; top: 70px; right: 18px; display: flex; flex-direction: column; width: min(460px, calc(100vw - 36px)); max-height: calc(100vh - 88px); border: 1px solid #d1d5db; border-radius: 12px; background: #fff; box-shadow: 0 8px 30px #0003; overflow: hidden; }
+.rag-scope-panel > header { display: flex; align-items: center; justify-content: space-between; padding: 15px 17px; border-bottom: 1px solid #e5e7eb; }
+.rag-scope-panel h3 { margin: 0; font-size: 16px; }.rag-scope-panel header p { margin-top: 4px; color: #64748b; font-size: 12px; }
+.rag-scope-panel header button { border: 0; background: transparent; font-size: 25px; cursor: pointer; }
+.rag-scope-list { padding: 8px; overflow-y: auto; }
+.rag-scope-list label { display: flex; align-items: flex-start; gap: 11px; padding: 10px; border-radius: 8px; cursor: pointer; }
+.rag-scope-list label:hover { background: #f8fafc; }.rag-scope-list input { margin-top: 3px; accent-color: #2563eb; }
+.rag-scope-list span { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.rag-scope-list strong { font-size: 13px; line-height: 1.4; overflow-wrap: anywhere; }.rag-scope-list small { color: #64748b; }
+.rag-scope-panel > footer { display: flex; align-items: center; justify-content: space-between; padding: 12px 17px; border-top: 1px solid #e5e7eb; color: #64748b; font-size: 12px; }
 .rag-settings-panel > header { position: sticky; z-index: 1; top: 0; display: flex; align-items: center; justify-content: space-between; margin: 0 -18px; padding: 14px 18px; border-bottom: 1px solid #e5e7eb; background: #fff; }
 .rag-settings-panel h3, .rag-settings-panel h4 { margin: 0; }
 .rag-settings-panel h4 { margin-bottom: 13px; font-size: 14px; }

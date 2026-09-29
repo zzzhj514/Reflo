@@ -172,7 +172,7 @@ export default function App() {
   }
 
   if (ragPaper) {
-    return <RagWorkspace key={ragPaper.id} paper={ragPaper}
+    return <RagWorkspace key={ragPaper.id} paper={ragPaper} papers={papers}
       onIndexed={() => {
         setPapers((current) => current.map((paper) => paper.id === ragPaper.id
           ? { ...paper, hasRag: true } : paper));

@@ -1,4 +1,10 @@
-use std::{cmp::Ordering, collections::HashSet, fs, path::Path, time::Duration};
+use std::{
+    cmp::Ordering,
+    collections::{HashMap, HashSet},
+    fs,
+    path::Path,
+    time::Duration,
+};
 
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
@@ -19,7 +25,8 @@ const RAG_SYSTEM_PROMPT: &str = r#"你是 Reflo 的学术论文问答助手。
 如果证据不足，明确回答“当前论文内容不足以回答”。
 区分作者的结论与自己的归纳，不要虚构实验数字、数据集、模块或因果关系。
 关键陈述后必须使用 [1]、[2] 形式引用对应片段；不要引用未提供的编号。
-先直接回答问题，再在需要时说明推理或证据冲突。使用简体中文，保留必要的英文术语。"#;
+先直接回答问题，再在需要时说明推理或证据冲突。使用简体中文，保留必要的英文术语。
+使用清晰的 Markdown 组织回答；公式使用 $...$ 或 $$...$$ LaTeX 定界符，代码使用围栏代码块。"#;
 
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -379,8 +386,47 @@ pub fn index_paper(data_dir: &Path, paper_id: &str) -> Result<RagIndexStatus, St
     index_status(data_dir, paper_id)
 }
 
-pub fn messages(data_dir: &Path, paper_id: &str) -> Result<Vec<RagMessage>, String> {
-    rag::paper_messages(&data_dir.join("reflo.sqlite"), paper_id)
+fn scope_details(
+    data_dir: &Path,
+    paper_ids: &[String],
+) -> Result<(Vec<String>, HashMap<String, String>, String, String, String), String> {
+    let mut ids: Vec<String> = paper_ids
+        .iter()
+        .map(|id| id.trim().to_owned())
+        .filter(|id| !id.is_empty())
+        .collect::<HashSet<_>>()
+        .into_iter()
+        .collect();
+    ids.sort();
+    if ids.is_empty() || ids.len() > 20 {
+        return Err("问答范围须包含 1 到 20 篇论文".into());
+    }
+    let available: HashMap<String, String> = crate::application::library::list_papers(data_dir)?
+        .into_iter()
+        .map(|paper| (paper.id, paper.title))
+        .collect();
+    if ids.iter().any(|id| !available.contains_key(id)) {
+        return Err("问答范围中包含不存在的论文".into());
+    }
+    if ids.len() == 1 {
+        let id = ids[0].clone();
+        let title = available[&id].clone();
+        Ok((ids, available, "paper".into(), id, title))
+    } else {
+        let joined = ids.join("\n");
+        let scope_id = Sha256::digest(joined.as_bytes())
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<Vec<_>>()
+            .join("");
+        let title = format!("联合问答（{} 篇论文）", ids.len());
+        Ok((ids, available, "topic".into(), scope_id, title))
+    }
+}
+
+pub fn messages(data_dir: &Path, paper_ids: &[String]) -> Result<Vec<RagMessage>, String> {
+    let (_, _, scope_type, scope_id, _) = scope_details(data_dir, paper_ids)?;
+    rag::scope_messages(&data_dir.join("reflo.sqlite"), &scope_type, &scope_id)
         .map_err(|e| e.to_string())?
         .into_iter()
         .map(|message| {
@@ -396,22 +442,29 @@ pub fn messages(data_dir: &Path, paper_id: &str) -> Result<Vec<RagMessage>, Stri
         .collect()
 }
 
-pub fn ask(data_dir: &Path, paper_id: &str, question: &str) -> Result<RagAnswer, String> {
+pub fn ask(data_dir: &Path, paper_ids: &[String], question: &str) -> Result<RagAnswer, String> {
     let question = question.trim();
     if question.is_empty() || question.chars().count() > 4000 {
         return Err("问题须为 1 到 4000 个字符".into());
     }
     let database = data_dir.join("reflo.sqlite");
-    let chunks = rag::indexed_chunks(&database, paper_id).map_err(|e| e.to_string())?;
-    if chunks.is_empty() {
-        return Err("请先为这篇论文创建 RAG 索引".into());
-    }
+    let (ids, titles, scope_type, scope_id, scope_title) = scope_details(data_dir, paper_ids)?;
     let settings = get_settings(data_dir)?.preferences;
-    let indexed = index_status(data_dir, paper_id)?;
-    if indexed.provider.as_deref() != Some(&settings.provider)
-        || indexed.model.as_deref() != Some(&settings.model)
-    {
-        return Err("Embedding 设置与当前索引不一致，请重新创建索引".into());
+    let mut chunks = Vec::new();
+    for paper_id in &ids {
+        let indexed = index_status(data_dir, paper_id)?;
+        if !indexed.indexed {
+            return Err(format!("“{}”尚未创建 RAG 索引", titles[paper_id]));
+        }
+        if indexed.provider.as_deref() != Some(&settings.provider)
+            || indexed.model.as_deref() != Some(&settings.model)
+        {
+            return Err(format!(
+                "“{}”的索引模型与当前设置不一致，请重新索引",
+                titles[paper_id]
+            ));
+        }
+        chunks.extend(rag::indexed_chunks(&database, paper_id).map_err(|e| e.to_string())?);
     }
     let api_key = credentials::get(&database, credential_name(&settings.provider)?)
         .map_err(|e| e.to_string())?
@@ -464,11 +517,15 @@ pub fn ask(data_dir: &Path, paper_id: &str, question: &str) -> Result<RagAnswer,
         .map(|(index, (score, chunk))| RagCitation {
             number: index + 1,
             chunk_id: chunk.id.clone(),
-            heading_path: if chunk.heading_path.is_empty() {
-                "未标注章节".into()
-            } else {
-                chunk.heading_path.clone()
-            },
+            heading_path: format!(
+                "{} · {}",
+                titles[&chunk.paper_id],
+                if chunk.heading_path.is_empty() {
+                    "未标注章节"
+                } else {
+                    &chunk.heading_path
+                }
+            ),
             excerpt: chunk.content.chars().take(500).collect(),
             score: *score,
         })
@@ -478,15 +535,16 @@ pub fn ask(data_dir: &Path, paper_id: &str, question: &str) -> Result<RagAnswer,
         .enumerate()
         .map(|(index, (_, chunk))| {
             format!(
-                "[{}] 章节：{}\n{}",
+                "[{}] 论文：{}\n章节：{}\n{}",
                 index + 1,
+                titles[&chunk.paper_id],
                 chunk.heading_path,
                 chunk.content
             )
         })
         .collect::<Vec<_>>()
         .join("\n\n---\n\n");
-    let history: String = messages(data_dir, paper_id)?
+    let history: String = messages(data_dir, &ids)?
         .into_iter()
         .rev()
         .take(6)
@@ -508,13 +566,8 @@ pub fn ask(data_dir: &Path, paper_id: &str, question: &str) -> Result<RagAnswer,
     let user_prompt = format!("<conversation_history>\n{history}\n</conversation_history>\n\n<retrieved_paper_chunks>\n{context}\n</retrieved_paper_chunks>\n\n<question>\n{question}\n</question>");
     let completion =
         translation::complete_model_for(data_dir, RAG_SYSTEM_PROMPT, &user_prompt, "论文问答")?;
-    let title = crate::application::library::list_papers(data_dir)?
-        .into_iter()
-        .find(|paper| paper.id == paper_id)
-        .map(|paper| paper.title)
-        .ok_or("文献不存在")?;
-    let session_id =
-        rag::ensure_paper_session(&database, paper_id, &title).map_err(|e| e.to_string())?;
+    let session_id = rag::ensure_scope_session(&database, &scope_type, &scope_id, &scope_title)
+        .map_err(|e| e.to_string())?;
     rag::append_exchange(
         &database,
         &session_id,
@@ -638,5 +691,26 @@ mod tests {
             embeddings_url(&preferences.base_url),
             "https://dashscope.aliyuncs.com/compatible-mode/v1/embeddings"
         );
+    }
+
+    #[test]
+    fn multi_paper_scope_is_stable_regardless_of_selection_order() {
+        let root = std::env::temp_dir().join(format!("reflo-rag-scope-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir(&root).unwrap();
+        crate::infrastructure::db::initialize(&root.join("reflo.sqlite")).unwrap();
+        let connection = rusqlite::Connection::open(root.join("reflo.sqlite")).unwrap();
+        connection
+            .execute("INSERT INTO papers(id,title) VALUES('a','Paper A')", [])
+            .unwrap();
+        connection
+            .execute("INSERT INTO papers(id,title) VALUES('b','Paper B')", [])
+            .unwrap();
+        drop(connection);
+        let first = scope_details(&root, &["a".into(), "b".into()]).unwrap();
+        let reversed = scope_details(&root, &["b".into(), "a".into()]).unwrap();
+        assert_eq!(first.2, "topic");
+        assert_eq!(first.3, reversed.3);
+        assert_eq!(first.0, vec!["a", "b"]);
+        let _ = std::fs::remove_dir_all(root);
     }
 }

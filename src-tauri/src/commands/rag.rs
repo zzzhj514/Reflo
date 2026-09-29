@@ -48,10 +48,10 @@ pub async fn index_paper_rag(
 #[tauri::command]
 pub async fn list_rag_messages(
     app: tauri::AppHandle,
-    paper_id: String,
+    paper_ids: Vec<String>,
 ) -> Result<Vec<RagMessage>, String> {
     let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    tauri::async_runtime::spawn_blocking(move || rag::messages(&data_dir, &paper_id))
+    tauri::async_runtime::spawn_blocking(move || rag::messages(&data_dir, &paper_ids))
         .await
         .map_err(|e| e.to_string())?
 }
@@ -59,11 +59,11 @@ pub async fn list_rag_messages(
 #[tauri::command]
 pub async fn ask_paper_rag(
     app: tauri::AppHandle,
-    paper_id: String,
+    paper_ids: Vec<String>,
     question: String,
 ) -> Result<RagAnswer, String> {
     let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    tauri::async_runtime::spawn_blocking(move || rag::ask(&data_dir, &paper_id, &question))
+    tauri::async_runtime::spawn_blocking(move || rag::ask(&data_dir, &paper_ids, &question))
         .await
         .map_err(|e| e.to_string())?
 }

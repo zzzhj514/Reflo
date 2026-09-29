@@ -1,17 +1,22 @@
 import { useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import rehypeKatex from "rehype-katex";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import "katex/dist/katex.min.css";
 import type { Paper } from "../../shared/contracts/library";
 import type { RagIndexStatus, RagMessage, RagPreferences, RagProvider } from "../../shared/contracts/rag";
 import { askPaperRag, getRagIndexStatus, getRagSettings, indexPaperRag, listRagMessages, saveRagSettings } from "../../shared/ipc/rag";
 import { TranslationSettings } from "../reader/components/TranslationSettings";
 
-type Props = { paper: Paper; onIndexed: () => void; onClose: () => void };
+type Props = { paper: Paper; papers: Paper[]; onIndexed: () => void; onClose: () => void };
 
 const DEFAULTS: RagPreferences = {
   provider: "openai", baseUrl: "https://api.openai.com/v1",
   model: "text-embedding-3-small", chunkChars: 2400, topK: 6,
 };
 
-export function RagWorkspace({ paper, onIndexed, onClose }: Props) {
+export function RagWorkspace({ paper, papers, onIndexed, onClose }: Props) {
   const [settings, setSettings] = useState<RagPreferences>(DEFAULTS);
   const [apiKey, setApiKey] = useState("");
   const [keyConfigured, setKeyConfigured] = useState(false);
@@ -24,26 +29,37 @@ export function RagWorkspace({ paper, onIndexed, onClose }: Props) {
   const [asking, setAsking] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showScope, setShowScope] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([paper.id]);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let active = true;
-    Promise.all([getRagSettings(), getRagIndexStatus(paper.id), listRagMessages(paper.id)])
-      .then(([ragSettings, status, history]) => {
+    Promise.all([getRagSettings(), getRagIndexStatus(paper.id)])
+      .then(([ragSettings, status]) => {
         if (!active) return;
         setSettings(ragSettings.preferences);
         setKeyConfigured(ragSettings.keyConfigured);
         setConfiguredProviders(ragSettings.configuredProviders);
         setIndexStatus(status);
-        setMessages(history);
         if (!ragSettings.keyConfigured) setShowSettings(true);
       })
       .catch((cause) => { if (active) setError(`读取 RAG 数据失败：${String(cause)}`); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [paper.id]);
+
+  const scopeKey = [...selectedIds].sort().join(":");
+  useEffect(() => {
+    let active = true;
+    setMessages([]);
+    listRagMessages(selectedIds).then((history) => { if (active) setMessages(history); })
+      .catch((cause) => { if (active) setError(`读取问答历史失败：${String(cause)}`); });
+    return () => { active = false; };
+  // The sorted key represents the set; array order does not create another conversation.
+  }, [scopeKey]);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, asking]);
 
@@ -81,26 +97,43 @@ export function RagWorkspace({ paper, onIndexed, onClose }: Props) {
 
   async function ask() {
     const value = question.trim();
-    if (!value || asking || !indexStatus?.indexed) return;
+    if (!value || asking || !scopeReady) return;
     setAsking(true); setError(null); setQuestion("");
     setMessages((current) => [...current, {
       id: `pending-${Date.now()}`, role: "user", content: value, citations: [], createdAt: new Date().toISOString(),
     }]);
     try {
-      await askPaperRag(paper.id, value);
-      setMessages(await listRagMessages(paper.id));
+      await askPaperRag(selectedIds, value);
+      setMessages(await listRagMessages(selectedIds));
     } catch (cause) {
       setMessages((current) => current.filter((item) => !item.id.startsWith("pending-")));
       setQuestion(value); setError(`问答失败：${String(cause)}`);
     } finally { setAsking(false); }
   }
 
+  function togglePaper(id: string) {
+    setSelectedIds((current) => current.includes(id)
+      ? (current.length === 1 ? current : current.filter((value) => value !== id))
+      : (current.length >= 20 ? current : [...current, id]));
+  }
+
+  const selectablePapers = papers.filter((item) => item.hasRag || item.id === paper.id);
+  const scopeReady = selectedIds.every((id) => {
+    const item = papers.find((candidate) => candidate.id === id);
+    return item?.hasRag || (id === paper.id && indexStatus?.indexed);
+  });
+  const scopeTitle = selectedIds.length === 1
+    ? papers.find((item) => item.id === selectedIds[0])?.title ?? paper.title
+    : `${selectedIds.length} 篇论文联合问答`;
+
   return (
     <div className="rag-workspace">
       <header className="rag-heading">
         <button className="secondary-button" disabled={indexing || asking} onClick={onClose}>返回文献库</button>
-        <div><h2>论文问答</h2><p>{paper.title}</p></div>
+        <div><h2>论文问答</h2><p>{scopeTitle}</p></div>
         {indexStatus?.indexed && <span className="rag-index-badge">{indexStatus.chunkCount} 个片段</span>}
+        <button className="secondary-button" disabled={asking || indexing}
+          onClick={() => setShowScope((value) => !value)}>问答范围 · {selectedIds.length}</button>
         <button className="secondary-button" onClick={() => setShowSettings(true)}>RAG 设置</button>
         <button className="primary-button" disabled={indexing || !paper.hasMarkdown || !keyConfigured}
           onClick={() => void buildIndex()}>{indexing ? "索引中…" : indexStatus?.indexed ? "重新索引" : "创建索引"}</button>
@@ -113,11 +146,11 @@ export function RagWorkspace({ paper, onIndexed, onClose }: Props) {
           {messages.length === 0 && (
             <section className="rag-empty">
               <span aria-hidden="true">RAG</span>
-              <h3>{indexStatus?.indexed ? "向这篇论文提问" : "先为论文创建检索索引"}</h3>
-              <p>{indexStatus?.indexed
-                ? "回答只使用当前论文的 Markdown 片段，并附上检索来源。"
+              <h3>{scopeReady ? `向${selectedIds.length === 1 ? "这篇论文" : "所选论文"}提问` : "先为所选论文创建检索索引"}</h3>
+              <p>{scopeReady
+                ? `回答只使用所选 ${selectedIds.length} 篇论文的 Markdown 片段，并附上论文和章节来源。`
                 : paper.hasMarkdown ? "配置 Embedding API 后点击右上角“创建索引”。" : "请先将 PDF 转换为 Markdown。"}</p>
-              {indexStatus?.indexed && <div className="rag-suggestions">
+              {scopeReady && <div className="rag-suggestions">
                 {["这篇论文解决了什么问题？", "核心方法和技术贡献是什么？", "实验如何证明方法有效？", "作者提到了哪些局限？"].map((item) =>
                   <button key={item} onClick={() => setQuestion(item)}>{item}</button>)}
               </div>}
@@ -126,11 +159,13 @@ export function RagWorkspace({ paper, onIndexed, onClose }: Props) {
           <div className="rag-message-list">
             {messages.map((message) => <article key={message.id} className={`rag-message ${message.role}`}>
               <header>{message.role === "user" ? "你" : "Reflo"}</header>
-              <p>{message.content}</p>
+              {message.role === "assistant" ? <div className="rag-markdown">
+                <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>{message.content}</ReactMarkdown>
+              </div> : <p>{message.content}</p>}
               {message.citations.length > 0 && <div className="rag-citations">
                 {message.citations.map((citation) => <details key={citation.chunkId}>
                   <summary>[{citation.number}] {citation.headingPath}</summary>
-                  <blockquote>{citation.excerpt}</blockquote>
+                  <blockquote><ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>{citation.excerpt}</ReactMarkdown></blockquote>
                 </details>)}
               </div>}
             </article>)}
@@ -141,15 +176,28 @@ export function RagWorkspace({ paper, onIndexed, onClose }: Props) {
       )}
 
       <footer className="rag-composer">
-        <textarea value={question} disabled={asking || !indexStatus?.indexed} rows={2}
-          placeholder={indexStatus?.indexed ? "针对这篇论文提问…（⌘/Ctrl + Enter 发送）" : "创建索引后即可提问"}
+        <textarea value={question} disabled={asking || !scopeReady} rows={2}
+          placeholder={scopeReady ? `针对所选 ${selectedIds.length} 篇论文提问…（⌘/Ctrl + Enter 发送）` : "请先为所选论文创建索引"}
           onChange={(event) => setQuestion(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); void ask(); }
           }} />
-        <button className="primary-button" disabled={asking || !question.trim() || !indexStatus?.indexed}
+        <button className="primary-button" disabled={asking || !question.trim() || !scopeReady}
           onClick={() => void ask()}>{asking ? "回答中…" : "发送"}</button>
       </footer>
+
+      {showScope && <aside className="rag-scope-panel">
+        <header><div><h3>问答范围</h3><p>勾选 1–20 篇已索引论文</p></div><button aria-label="关闭问答范围" onClick={() => setShowScope(false)}>×</button></header>
+        <div className="rag-scope-list">
+          {selectablePapers.map((item) => <label key={item.id}>
+            <input type="checkbox" checked={selectedIds.includes(item.id)}
+              disabled={asking || (!item.hasRag && !(item.id === paper.id && indexStatus?.indexed))}
+              onChange={() => togglePaper(item.id)} />
+            <span><strong>{item.title}</strong><small>{item.hasRag || (item.id === paper.id && indexStatus?.indexed) ? "索引可用" : "尚未索引"}</small></span>
+          </label>)}
+        </div>
+        <footer><span>{selectedIds.length} 篇已选择</span><button className="primary-button" onClick={() => setShowScope(false)}>完成</button></footer>
+      </aside>}
 
       {showSettings && <aside className="rag-settings-panel">
         <header><h3>RAG 设置</h3><button aria-label="关闭 RAG 设置" onClick={() => setShowSettings(false)}>×</button></header>
