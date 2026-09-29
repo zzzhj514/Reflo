@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from "react";
 import type { Paper } from "../../shared/contracts/library";
 import type { PaperTree, PaperTreeNode } from "../../shared/contracts/paperTree";
 import { generatePaperTree, getPaperTree, savePaperTree } from "../../shared/ipc/paperTree";
@@ -11,6 +12,74 @@ type Props = {
 };
 
 type Mode = "outline" | "tree";
+
+const ROOT_WIDTH = 260;
+const ROOT_HEIGHT = 100;
+const NODE_WIDTH = 250;
+const NODE_HEIGHT = 112;
+const COLUMN_GAP = 110;
+const ROW_GAP = 28;
+const CANVAS_PADDING = 70;
+const MIN_ZOOM = 0.3;
+const MAX_ZOOM = 2.5;
+
+type PositionedNode = { node: PaperTreeNode; x: number; y: number };
+type TreeEdge = { id: string; fromX: number; fromY: number; toX: number; toY: number };
+type TreeLayout = {
+  root: { x: number; y: number };
+  nodes: PositionedNode[];
+  edges: TreeEdge[];
+  width: number;
+  height: number;
+};
+
+function buildTreeLayout(nodes: PaperTreeNode[], collapsed: Set<string>): TreeLayout {
+  function span(node: PaperTreeNode): number {
+    const children = collapsed.has(node.id) ? [] : node.children;
+    if (children.length === 0) return NODE_HEIGHT;
+    return Math.max(NODE_HEIGHT, children.reduce((total, child) => total + span(child), 0)
+      + ROW_GAP * (children.length - 1));
+  }
+
+  const spans = nodes.map(span);
+  const forestHeight = spans.reduce((total, value) => total + value, 0)
+    + ROW_GAP * Math.max(0, nodes.length - 1);
+  const height = Math.max(ROOT_HEIGHT, forestHeight) + CANVAS_PADDING * 2;
+  const root = { x: CANVAS_PADDING, y: height / 2 - ROOT_HEIGHT / 2 };
+  const positioned: PositionedNode[] = [];
+  const edges: TreeEdge[] = [];
+  let maxDepth = -1;
+
+  function place(node: PaperTreeNode, depth: number, top: number, nodeSpan: number,
+    parentX: number, parentY: number) {
+    maxDepth = Math.max(maxDepth, depth);
+    const x = CANVAS_PADDING + ROOT_WIDTH + COLUMN_GAP + depth * (NODE_WIDTH + COLUMN_GAP);
+    const centerY = top + nodeSpan / 2;
+    const y = centerY - NODE_HEIGHT / 2;
+    positioned.push({ node, x, y });
+    edges.push({ id: `${node.id}:${depth}`, fromX: parentX, fromY: parentY, toX: x, toY: centerY });
+
+    if (collapsed.has(node.id) || node.children.length === 0) return;
+    const childSpans = node.children.map(span);
+    const childrenHeight = childSpans.reduce((total, value) => total + value, 0)
+      + ROW_GAP * (node.children.length - 1);
+    let childTop = centerY - childrenHeight / 2;
+    node.children.forEach((child, index) => {
+      place(child, depth + 1, childTop, childSpans[index], x + NODE_WIDTH, centerY);
+      childTop += childSpans[index] + ROW_GAP;
+    });
+  }
+
+  let top = (height - forestHeight) / 2;
+  nodes.forEach((node, index) => {
+    place(node, 0, top, spans[index], root.x + ROOT_WIDTH, height / 2);
+    top += spans[index] + ROW_GAP;
+  });
+  const columns = maxDepth + 1;
+  const width = CANVAS_PADDING * 2 + ROOT_WIDTH
+    + (columns > 0 ? COLUMN_GAP + columns * NODE_WIDTH + Math.max(0, columns - 1) * COLUMN_GAP : 0);
+  return { root, nodes: positioned, edges, width, height };
+}
 
 function freshNode(title = "新节点"): PaperTreeNode {
   return { id: crypto.randomUUID(), title, note: "", children: [] };
@@ -90,36 +159,6 @@ function OutlineNode({ node, depth, disabled, onChange, onAddChild, onAddSibling
   );
 }
 
-function TreeBranch({ node, collapsed, onToggle }: {
-  node: PaperTreeNode;
-  collapsed: Set<string>;
-  onToggle: (id: string) => void;
-}) {
-  const hidden = collapsed.has(node.id);
-  return (
-    <li className="paper-tree-branch">
-      <article className="paper-tree-card">
-        <header>
-          <strong>{node.title || "未命名节点"}</strong>
-          {node.children.length > 0 && (
-            <button aria-label={hidden ? "展开子节点" : "收起子节点"} onClick={() => onToggle(node.id)}>
-              {hidden ? `＋${node.children.length}` : "−"}
-            </button>
-          )}
-        </header>
-        {node.note && <p>{node.note}</p>}
-      </article>
-      {!hidden && node.children.length > 0 && (
-        <ul className="paper-tree-branches">
-          {node.children.map((child) => (
-            <TreeBranch key={child.id} node={child} collapsed={collapsed} onToggle={onToggle} />
-          ))}
-        </ul>
-      )}
-    </li>
-  );
-}
-
 export function PaperTreeWorkspace({ paper, onSaved, onClose }: Props) {
   const [tree, setTree] = useState<PaperTree | null>(null);
   const [mode, setMode] = useState<Mode>("outline");
@@ -130,6 +169,11 @@ export function PaperTreeWorkspace({ paper, onSaved, onClose }: Props) {
   const [generationStatus, setGenerationStatus] = useState<string | null>(null);
   const [showModelSettings, setShowModelSettings] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const zoomRef = useRef(1);
+  const canvasRef = useRef<HTMLElement | null>(null);
+  const dragRef = useRef<{ pointerId: number; x: number; y: number; panX: number; panY: number } | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -140,6 +184,86 @@ export function PaperTreeWorkspace({ paper, onSaved, onClose }: Props) {
   }, [paper.id, paper.title]);
 
   const totalNodes = useMemo(() => tree ? countNodes(tree.nodes) : 0, [tree]);
+  const treeLayout = useMemo(() => buildTreeLayout(tree?.nodes ?? [], collapsed), [tree?.nodes, collapsed]);
+
+  const fitTree = useCallback(() => {
+    const viewport = canvasRef.current?.getBoundingClientRect();
+    if (!viewport) return;
+    const nextZoom = Math.min(1, Math.max(MIN_ZOOM,
+      Math.min((viewport.width - 56) / treeLayout.width, (viewport.height - 56) / treeLayout.height)));
+    zoomRef.current = nextZoom;
+    setZoom(nextZoom);
+    setPan({
+      x: (viewport.width - treeLayout.width * nextZoom) / 2,
+      y: (viewport.height - treeLayout.height * nextZoom) / 2,
+    });
+  }, [treeLayout.height, treeLayout.width]);
+
+  useEffect(() => {
+    if (mode !== "tree" || !tree) return;
+    const frame = requestAnimationFrame(fitTree);
+    return () => cancelAnimationFrame(frame);
+  }, [mode, tree?.paperId, collapsed, fitTree]);
+
+  function zoomAt(nextZoom: number, clientX?: number, clientY?: number) {
+    const viewport = canvasRef.current?.getBoundingClientRect();
+    const clamped = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, nextZoom));
+    const previousZoom = zoomRef.current;
+    zoomRef.current = clamped;
+    if (!viewport) { setZoom(clamped); return; }
+    const anchorX = clientX === undefined ? viewport.width / 2 : clientX - viewport.left;
+    const anchorY = clientY === undefined ? viewport.height / 2 : clientY - viewport.top;
+    setPan((current) => ({
+      x: anchorX - (anchorX - current.x) * clamped / previousZoom,
+      y: anchorY - (anchorY - current.y) * clamped / previousZoom,
+    }));
+    setZoom(clamped);
+  }
+
+  useEffect(() => {
+    if (mode !== "tree") return;
+    function handleShortcut(event: KeyboardEvent) {
+      if (!(event.metaKey || event.ctrlKey)) return;
+      if (event.key === "+" || event.key === "=") {
+        event.preventDefault();
+        zoomAt(zoomRef.current * 1.2);
+      } else if (event.key === "-") {
+        event.preventDefault();
+        zoomAt(zoomRef.current / 1.2);
+      } else if (event.key === "0") {
+        event.preventDefault();
+        fitTree();
+      }
+    }
+    window.addEventListener("keydown", handleShortcut);
+    return () => window.removeEventListener("keydown", handleShortcut);
+  }, [mode, fitTree]);
+
+  function handleCanvasWheel(event: ReactWheelEvent<HTMLElement>) {
+    event.preventDefault();
+    if (event.metaKey || event.ctrlKey) {
+      zoomAt(zoomRef.current * Math.exp(-event.deltaY * 0.002), event.clientX, event.clientY);
+      return;
+    }
+    setPan((current) => ({ x: current.x - event.deltaX, y: current.y - event.deltaY }));
+  }
+
+  function handlePointerDown(event: ReactPointerEvent<SVGSVGElement>) {
+    if (event.button !== 0) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dragRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, panX: pan.x, panY: pan.y };
+  }
+
+  function handlePointerMove(event: ReactPointerEvent<SVGSVGElement>) {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    setPan({ x: drag.panX + event.clientX - drag.x, y: drag.panY + event.clientY - drag.y });
+  }
+
+  function handlePointerUp(event: ReactPointerEvent<SVGSVGElement>) {
+    if (dragRef.current?.pointerId === event.pointerId) dragRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+  }
 
   function changeNodes(updater: (nodes: PaperTreeNode[]) => PaperTreeNode[]) {
     setTree((current) => current ? { ...current, nodes: updater(current.nodes) } : current);
@@ -247,23 +371,54 @@ export function PaperTreeWorkspace({ paper, onSaved, onClose }: Props) {
       )}
 
       {tree && mode === "tree" && (
-        <main className="paper-tree-canvas-scroll">
-          <div className="paper-tree-root-layout">
-            <article className="paper-tree-root-card">
-              <span>Paper</span>
-              <strong>{tree.title || paper.title}</strong>
-            </article>
-            <ul className="paper-tree-branches paper-tree-root-branches">
-              {tree.nodes.map((node) => (
-                <TreeBranch key={node.id} node={node} collapsed={collapsed}
-                  onToggle={(id) => setCollapsed((current) => {
-                    const next = new Set(current);
-                    if (next.has(id)) next.delete(id); else next.add(id);
-                    return next;
-                  })} />
-              ))}
-            </ul>
+        <main ref={canvasRef} className="paper-tree-canvas" onWheel={handleCanvasWheel}>
+          <div className="paper-tree-canvas-toolbar">
+            <button aria-label="缩小" onClick={() => zoomAt(zoom / 1.2)}>−</button>
+            <span>{Math.round(zoom * 100)}%</span>
+            <button aria-label="放大" onClick={() => zoomAt(zoom * 1.2)}>＋</button>
+            <button onClick={fitTree}>适应窗口</button>
           </div>
+          <p className="paper-tree-canvas-help">滚轮/触控板移动 · 拖拽画布 · ⌘/Ctrl + 滚轮或 ＋/− 缩放 · ⌘/Ctrl + 0 适应</p>
+          <svg className="paper-tree-viewport" aria-label={`${tree.title} 的树状结构`}
+            onPointerDown={handlePointerDown} onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp}>
+            <g transform={`translate(${pan.x} ${pan.y}) scale(${zoom})`}>
+              <g className="paper-tree-edge-layer">
+                {treeLayout.edges.map((edge) => {
+                  const bend = edge.fromX + (edge.toX - edge.fromX) / 2;
+                  return <path key={edge.id}
+                    d={`M ${edge.fromX} ${edge.fromY} C ${bend} ${edge.fromY}, ${bend} ${edge.toY}, ${edge.toX} ${edge.toY}`} />;
+                })}
+              </g>
+              <foreignObject x={treeLayout.root.x} y={treeLayout.root.y} width={ROOT_WIDTH} height={ROOT_HEIGHT}>
+                <div className="paper-tree-svg-root">
+                  <span>Paper</span><strong>{tree.title || paper.title}</strong>
+                </div>
+              </foreignObject>
+              {treeLayout.nodes.map(({ node, x, y }) => {
+                const hidden = collapsed.has(node.id);
+                return (
+                  <foreignObject key={node.id} x={x} y={y} width={NODE_WIDTH} height={NODE_HEIGHT}>
+                    <article className="paper-tree-svg-card">
+                      <header>
+                        <strong>{node.title || "未命名节点"}</strong>
+                        {node.children.length > 0 && (
+                          <button aria-label={hidden ? "展开子节点" : "收起子节点"}
+                            onPointerDown={(event) => event.stopPropagation()}
+                            onClick={() => setCollapsed((current) => {
+                              const next = new Set(current);
+                              if (next.has(node.id)) next.delete(node.id); else next.add(node.id);
+                              return next;
+                            })}>{hidden ? `＋${node.children.length}` : "−"}</button>
+                        )}
+                      </header>
+                      {node.note && <p>{node.note}</p>}
+                    </article>
+                  </foreignObject>
+                );
+              })}
+            </g>
+          </svg>
         </main>
       )}
 
