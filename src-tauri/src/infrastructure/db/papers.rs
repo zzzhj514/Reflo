@@ -10,6 +10,7 @@ pub struct PaperArtifactStatus {
     pub original_name: String,
     pub has_markdown: bool,
     pub has_translation: bool,
+    pub has_paper_tree: bool,
 }
 
 pub fn artifact_status(path: &Path, paper_id: &str) -> rusqlite::Result<PaperArtifactStatus> {
@@ -18,6 +19,8 @@ pub fn artifact_status(path: &Path, paper_id: &str) -> rusqlite::Result<PaperArt
             SELECT 1 FROM markdown_documents m WHERE m.document_id = d.id
          ), EXISTS(
             SELECT 1 FROM markdown_translations t WHERE t.document_id = d.id
+         ), EXISTS(
+            SELECT 1 FROM paper_trees pt WHERE pt.paper_id = d.paper_id
          )
          FROM documents d WHERE d.paper_id = ?1 ORDER BY d.created_at LIMIT 1",
         [paper_id],
@@ -26,6 +29,7 @@ pub fn artifact_status(path: &Path, paper_id: &str) -> rusqlite::Result<PaperArt
                 original_name: row.get(0)?,
                 has_markdown: row.get(1)?,
                 has_translation: row.get(2)?,
+                has_paper_tree: row.get(3)?,
             })
         },
     )

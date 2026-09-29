@@ -1,4 +1,5 @@
 pub mod conversions;
+pub mod paper_trees;
 pub mod papers;
 pub mod reader;
 pub mod translations;
@@ -22,7 +23,7 @@ pub fn initialize(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
 
     let version: i64 = transaction.query_row("PRAGMA user_version;", [], |row| row.get(0))?;
 
-    if !(0..=8).contains(&version) {
+    if !(0..=9).contains(&version) {
         return Err(std::io::Error::new(
             std::io::ErrorKind::InvalidData,
             format!("不支持的数据库版本：{version}"),
@@ -72,6 +73,10 @@ pub fn initialize(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
             "../../../migrations/008_markdown_translations.sql"
         ))?;
         transaction.execute_batch("PRAGMA user_version = 8;")?;
+    }
+    if version < 9 {
+        transaction.execute_batch(include_str!("../../../migrations/009_paper_trees.sql"))?;
+        transaction.execute_batch("PRAGMA user_version = 9;")?;
     }
     transaction.commit()?;
 

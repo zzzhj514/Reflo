@@ -24,7 +24,9 @@ pub fn run() {
             commands::translation::save_translation_settings,
             commands::translation::translate_text,
             commands::translation::get_markdown_translation,
-            commands::translation::translate_markdown_document
+            commands::translation::translate_markdown_document,
+            commands::paper_tree::get_paper_tree,
+            commands::paper_tree::save_paper_tree
         ])
         .setup(|app| {
             let data_dir = app.path().app_data_dir()?;

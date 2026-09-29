@@ -1,0 +1,6 @@
+CREATE TABLE paper_trees (
+    paper_id TEXT PRIMARY KEY NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    nodes_json TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

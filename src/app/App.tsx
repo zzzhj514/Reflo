@@ -5,6 +5,7 @@ import { importPdf, listPapers } from "../shared/ipc/library";
 import { ReaderWorkspace } from "../features/reader";
 import { MetadataEditor, PaperFolder } from "../features/library";
 import { MarkdownWorkspace } from "../features/conversion";
+import { PaperTreeWorkspace } from "../features/paper-tree";
 import type { Paper } from "../shared/contracts/library";
 
 export default function App() {
@@ -19,6 +20,7 @@ export default function App() {
   const [editing, setEditing] = useState(false);
   const [reading, setReading] = useState<{ id: string; title: string } | null>(null);
   const [convertingPaper, setConvertingPaper] = useState<Paper | null>(null);
+  const [paperTreePaper, setPaperTreePaper] = useState<Paper | null>(null);
   const busy = useRef(false);
 
   useEffect(() => {
@@ -97,6 +99,17 @@ export default function App() {
           : paper));
       }}
       onClose={() => setConvertingPaper(null)} />;
+  }
+
+  if (paperTreePaper) {
+    return <PaperTreeWorkspace key={paperTreePaper.id} paper={paperTreePaper}
+      onSaved={() => {
+        setPapers((current) => current.map((paper) => paper.id === paperTreePaper.id
+          ? { ...paper, hasPaperTree: true }
+          : paper));
+        setPaperTreePaper((current) => current ? { ...current, hasPaperTree: true } : current);
+      }}
+      onClose={() => setPaperTreePaper(null)} />;
   }
 
   return (
@@ -182,6 +195,10 @@ export default function App() {
               onOpenTranslation={() => {
                 setSelectedId(paper.id);
                 setConvertingPaper(paper);
+              }}
+              onOpenPaperTree={() => {
+                setSelectedId(paper.id);
+                setPaperTreePaper(paper);
               }} />
           ))}
         </ul>
@@ -196,6 +213,8 @@ export default function App() {
               onClick={() => setReading({ id: selectedPaper.id, title: selectedPaper.title })}>阅读 PDF</button>
             <button className="secondary-button" disabled={editing || isSelecting}
               onClick={() => setConvertingPaper(selectedPaper)}>转为 Markdown</button>
+            <button className="secondary-button" disabled={editing || isSelecting}
+              onClick={() => setPaperTreePaper(selectedPaper)}>Paper Tree</button>
           </div>
         )}
         {selectedPaper ? (
