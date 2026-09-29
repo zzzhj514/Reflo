@@ -162,7 +162,7 @@ export function RagWorkspace({ paper, onIndexed, onClose }: Props) {
           </select></label>
           <label>API Base URL<input value={settings.baseUrl} onChange={(event) => setSettings({ ...settings, baseUrl: event.target.value })} /></label>
           <label>Embedding 模型<input value={settings.model} onChange={(event) => setSettings({ ...settings, model: event.target.value })} /></label>
-          {settings.provider === "qwen" && <p className="muted">默认使用百炼公共兼容端点；也可填入业务空间专属 Base URL。</p>}
+          {settings.provider === "qwen" && <p className="muted">默认使用百炼公共兼容端点；也可填入业务空间专属 Base URL。索引会按每批 10 个片段提交，以兼容不同百炼向量模型。</p>}
           <div className="rag-settings-grid">
             <label>每片字符数<input type="number" min={500} max={8000} value={settings.chunkChars}
               onChange={(event) => setSettings({ ...settings, chunkChars: Number(event.target.value) })} /></label>
