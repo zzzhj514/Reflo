@@ -88,9 +88,9 @@ export function TranslationSettings() {
         {TARGETS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
       </select></label>
       <label>API Key<input type="password" autoComplete="new-password" value={apiKey}
-        placeholder={keyConfigured ? "已保存在 macOS 钥匙串；留空保持不变" : "输入 API Key"}
+        placeholder={keyConfigured ? "已保存在 Reflo 数据库；留空保持不变" : "输入 API Key"}
         onChange={(event) => setApiKey(event.target.value)} /></label>
-      <p className="muted">请求使用 OpenAI-compatible Chat Completions 格式。API Key 只存入 macOS 钥匙串。</p>
+      <p className="muted">请求使用 OpenAI-compatible Chat Completions 格式。API Key 保存在 Reflo 本地 SQLite 数据库中。</p>
       {message && <p className="settings-success" role="status">{message}</p>}
       {error && <p className="form-error" role="alert">{error}</p>}
       <button className="primary-button" disabled={saving || (!keyConfigured && !apiKey.trim())}

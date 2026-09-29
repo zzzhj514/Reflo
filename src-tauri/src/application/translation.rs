@@ -1,7 +1,4 @@
-use crate::infrastructure::{
-    credentials,
-    db::{conversions, reader, translations},
-};
+use crate::infrastructure::db::{conversions, credentials, reader, translations};
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -95,7 +92,7 @@ pub struct ModelCompletion {
     pub model: String,
 }
 
-fn keychain_account(provider: &str) -> Result<&'static str, String> {
+fn credential_name(provider: &str) -> Result<&'static str, String> {
     match provider {
         "openai" => Ok("translation-openai-api-key"),
         "deepseek" => Ok("translation-deepseek-api-key"),
@@ -109,7 +106,7 @@ fn validate(preferences: &mut TranslationPreferences) -> Result<(), String> {
     preferences.base_url = preferences.base_url.trim().trim_end_matches('/').to_owned();
     preferences.model = preferences.model.trim().to_owned();
     preferences.target_language = preferences.target_language.trim().to_owned();
-    keychain_account(&preferences.provider)?;
+    credential_name(&preferences.provider)?;
     if preferences.model.is_empty() || preferences.model.chars().count() > 200 {
         return Err("请填写有效的模型名称".into());
     }
@@ -138,15 +135,17 @@ fn from_record(record: translations::TranslationSettingsRecord) -> TranslationPr
 }
 
 pub fn get_settings(data_dir: &Path) -> Result<TranslationSettingsStatus, String> {
-    let mut preferences = translations::settings(&data_dir.join("reflo.sqlite"))
+    let database = data_dir.join("reflo.sqlite");
+    let mut preferences = translations::settings(&database)
         .map(from_record)
         .map_err(|error| error.to_string())?;
     validate(&mut preferences)?;
-    let account = keychain_account(&preferences.provider)?;
+    let account = credential_name(&preferences.provider)?;
     let configured_providers = ["openai", "deepseek", "custom"]
         .into_iter()
         .map(|provider| {
-            credentials::get(keychain_account(provider)?)
+            credentials::get(&database, credential_name(provider)?)
+                .map_err(|error| error.to_string())
                 .map(|key| key.map(|_| provider.to_owned()))
         })
         .collect::<Result<Vec<_>, String>>()?
@@ -155,7 +154,9 @@ pub fn get_settings(data_dir: &Path) -> Result<TranslationSettingsStatus, String
         .collect();
     Ok(TranslationSettingsStatus {
         preferences,
-        key_configured: credentials::get(account)?.is_some(),
+        key_configured: credentials::get(&database, account)
+            .map_err(|error| error.to_string())?
+            .is_some(),
         configured_providers,
     })
 }
@@ -170,7 +171,12 @@ pub fn save_settings(
         if api_key.is_empty() || api_key.len() > 4096 {
             return Err("请填写有效的 API Key".into());
         }
-        credentials::set(keychain_account(&input.preferences.provider)?, api_key)?;
+        credentials::set(
+            &data_dir.join("reflo.sqlite"),
+            credential_name(&input.preferences.provider)?,
+            api_key,
+        )
+        .map_err(|error| error.to_string())?;
     }
     translations::save_settings(
         &data_dir.join("reflo.sqlite"),
@@ -325,8 +331,12 @@ pub fn complete_model(
         .map(from_record)
         .map_err(|error| error.to_string())?;
     validate(&mut preferences)?;
-    let api_key = credentials::get(keychain_account(&preferences.provider)?)?
-        .ok_or("请先在翻译设置中保存 API Key")?;
+    let api_key = credentials::get(
+        &data_dir.join("reflo.sqlite"),
+        credential_name(&preferences.provider)?,
+    )
+    .map_err(|error| error.to_string())?
+    .ok_or("请先在翻译设置中保存 API Key")?;
     let content = request_chat_completion(
         &client()?,
         &preferences,
@@ -347,8 +357,12 @@ pub fn translate(data_dir: &Path, text: &str) -> Result<TranslationResult, Strin
         .map(from_record)
         .map_err(|error| error.to_string())?;
     validate(&mut preferences)?;
-    let api_key = credentials::get(keychain_account(&preferences.provider)?)?
-        .ok_or("请先在翻译设置中保存 API Key")?;
+    let api_key = credentials::get(
+        &data_dir.join("reflo.sqlite"),
+        credential_name(&preferences.provider)?,
+    )
+    .map_err(|error| error.to_string())?
+    .ok_or("请先在翻译设置中保存 API Key")?;
     let trimmed = text.trim();
     if trimmed.is_empty() {
         return Err("没有可翻译的文字".into());
@@ -483,8 +497,12 @@ pub fn translate_markdown(
         .map(from_record)
         .map_err(|error| error.to_string())?;
     validate(&mut preferences)?;
-    let api_key = credentials::get(keychain_account(&preferences.provider)?)?
-        .ok_or("请先在翻译设置中保存 API Key")?;
+    let api_key = credentials::get(
+        &data_dir.join("reflo.sqlite"),
+        credential_name(&preferences.provider)?,
+    )
+    .map_err(|error| error.to_string())?
+    .ok_or("请先在翻译设置中保存 API Key")?;
     let target_code = resolved_target_code(&preferences.target_language, &markdown);
     let target = resolved_target(target_code, &markdown);
     let client = client()?;

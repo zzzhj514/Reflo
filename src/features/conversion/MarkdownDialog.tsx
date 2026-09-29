@@ -139,9 +139,9 @@ export function MarkdownWorkspace({ paper, onConverted, onTranslated, onClose }:
           <div className="mineru-settings">
             <label htmlFor="mineru-token">MinerU API Token</label>
             <input id="mineru-token" type="password" autoComplete="new-password" value={apiToken}
-              placeholder={tokenConfigured ? "已保存在 macOS 钥匙串；留空保持不变" : "从 mineru.net 获取的 Token"}
+              placeholder={tokenConfigured ? "已保存在 Reflo 数据库；留空保持不变" : "从 mineru.net 获取的 Token"}
               onChange={(event) => setApiToken(event.target.value)} />
-            <p className="muted">{tokenConfigured ? "Token 已安全保存。输入新值可替换。" : "保存后由 macOS 钥匙串加密管理，Reflo 不会把明文写入数据库。"}</p>
+            <p className="muted">{tokenConfigured ? "Token 已保存在 Reflo 本地数据库。输入新值可替换。" : "保存后写入 Reflo 本地 SQLite 数据库。"}</p>
 
             <div className="mineru-grid">
               <label>模型<select value={settings.model} onChange={(event) => setSettings({ ...settings, model: event.target.value as MinerUPreferences["model"] })}>

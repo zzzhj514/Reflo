@@ -1,0 +1,5 @@
+CREATE TABLE api_credentials (
+    name TEXT PRIMARY KEY NOT NULL,
+    secret TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

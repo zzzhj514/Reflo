@@ -1,7 +1,4 @@
-use crate::infrastructure::{
-    credentials,
-    db::{conversions, reader},
-};
+use crate::infrastructure::db::{conversions, credentials, reader};
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -13,7 +10,7 @@ use zip::ZipArchive;
 
 const BASE_URL: &str = "https://mineru.net";
 const MAX_DOWNLOAD_BYTES: u64 = 512 * 1024 * 1024;
-const KEYCHAIN_ACCOUNT: &str = "mineru-api-token";
+const MINERU_CREDENTIAL: &str = "mineru-api-token";
 
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -122,13 +119,16 @@ fn preferences_from_record(record: conversions::MinerUPreferencesRecord) -> Mine
 }
 
 pub fn get_settings(data_dir: &Path) -> Result<MinerUSettingsStatus, String> {
-    let preferences = conversions::mineru_preferences(&data_dir.join("reflo.sqlite"))
+    let database = data_dir.join("reflo.sqlite");
+    let preferences = conversions::mineru_preferences(&database)
         .map(preferences_from_record)
         .map_err(|error| error.to_string())?;
     validate_preferences(&preferences)?;
     Ok(MinerUSettingsStatus {
         preferences,
-        token_configured: credentials::get(KEYCHAIN_ACCOUNT)?.is_some(),
+        token_configured: credentials::get(&database, MINERU_CREDENTIAL)
+            .map_err(|error| error.to_string())?
+            .is_some(),
     })
 }
 
@@ -144,7 +144,8 @@ pub fn save_settings(
         if token.is_empty() || token.len() > 4096 {
             return Err("请填写有效的 MinerU API Token".into());
         }
-        credentials::set(KEYCHAIN_ACCOUNT, token)?;
+        credentials::set(&data_dir.join("reflo.sqlite"), MINERU_CREDENTIAL, token)
+            .map_err(|error| error.to_string())?;
     }
     conversions::save_mineru_preferences(
         &data_dir.join("reflo.sqlite"),
@@ -302,7 +303,9 @@ pub fn convert(data_dir: &Path, paper_id: &str) -> Result<MarkdownDocument, Stri
         .map(preferences_from_record)
         .map_err(|error| error.to_string())?;
     validate_preferences(&preferences)?;
-    let api_token = credentials::get(KEYCHAIN_ACCOUNT)?.ok_or("请先保存 MinerU API Token")?;
+    let api_token = credentials::get(&data_dir.join("reflo.sqlite"), MINERU_CREDENTIAL)
+        .map_err(|error| error.to_string())?
+        .ok_or("请先保存 MinerU API Token")?;
     let settings = MinerUSettings {
         api_token,
         preferences,
