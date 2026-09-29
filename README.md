@@ -16,7 +16,7 @@ Reflo 是独立的桌面论文研究应用，首发 macOS，并保留后续 Wind
 
 已接入 MinerU v4 云端解析，可将文献库中的 PDF 转换为 Markdown，并保存 `full.md` 与提取图片。转换设置支持 VLM/Pipeline、文档语言、OCR、公式和表格识别；API Token 长期保存在 macOS 钥匙串中，明文不会写入 SQLite。转换后的文件位于对应文献目录的 `markdown/` 子目录，可在与 PDF 阅读器一致的全屏工作区中使用排版阅读或 Markdown 源码模式查看和复制。工作区提供大模型“一键翻译”，按 Markdown 段落分块翻译整篇文档并将译文持久化保存，可在原文/译文之间切换。重新转换采用临时目录与上一版备份，成功后才替换已有结果，同时使旧译文记录失效。
 
-每篇论文可打开独立的 Paper Tree 工作区。首次打开会载入以 Abstract、Introduction、Method、Experiments、Limitation 为骨架的结构化模板，可逐层编辑标题和说明、添加同级或子级节点，并保存到 SQLite。填写过程中可随时切换到可折叠的横向树状视图。
+每篇论文可打开独立的 Paper Tree 工作区。首次打开会载入以 Abstract、Introduction、Method、Experiments、Limitation 为骨架的结构化模板，可逐层编辑标题和说明、添加同级或子级节点，并保存到 SQLite。填写过程中可随时切换到可折叠的横向树状视图。已转换 Markdown 的论文还可复用翻译模块中的 OpenAI-compatible 模型设置一键生成 Paper Tree：短文直接分析，长文先分段提取证据再合成为结构树，模型输出经 JSON 结构与节点规则校验后才会保存。
 
 导入阶段仅检查标准文件头，损坏文件由阅读器显示加载错误；加密 PDF 暂需先解密。正常错误会清理本次导入产物；进程异常退出后的孤立文件自动恢复尚未实现。
 

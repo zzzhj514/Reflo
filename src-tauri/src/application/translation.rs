@@ -89,6 +89,12 @@ struct ChatResponseMessage {
     content: Option<String>,
 }
 
+pub struct ModelCompletion {
+    pub content: String,
+    pub provider: String,
+    pub model: String,
+}
+
 fn keychain_account(provider: &str) -> Result<&'static str, String> {
     match provider {
         "openai" => Ok("translation-openai-api-key"),
@@ -249,16 +255,27 @@ fn request_translation(
     let instruction = format!(
         "Translate the user's academic text into {target}.{format_instruction} Return only the translation without commentary."
     );
+    request_chat_completion(client, preferences, api_key, &instruction, text, "翻译")
+}
+
+fn request_chat_completion(
+    client: &Client,
+    preferences: &TranslationPreferences,
+    api_key: &str,
+    system: &str,
+    user: &str,
+    operation: &str,
+) -> Result<String, String> {
     let request = ChatRequest {
         model: &preferences.model,
         messages: [
             ChatMessage {
                 role: "system",
-                content: &instruction,
+                content: system,
             },
             ChatMessage {
                 role: "user",
-                content: text,
+                content: user,
             },
         ],
         stream: false,
@@ -268,7 +285,7 @@ fn request_translation(
         .bearer_auth(api_key)
         .json(&request)
         .send()
-        .map_err(|error| format!("连接翻译模型失败：{error}"))?;
+        .map_err(|error| format!("连接{operation}模型失败：{error}"))?;
     let status = response.status();
     if !status.is_success() {
         let details: String = response
@@ -277,18 +294,18 @@ fn request_translation(
             .chars()
             .take(2000)
             .collect();
-        return Err(format!("翻译模型返回 {status}：{details}"));
+        return Err(format!("{operation}模型返回 {status}：{details}"));
     }
     response
         .json::<ChatResponse>()
-        .map_err(|error| format!("解析翻译响应失败：{error}"))?
+        .map_err(|error| format!("解析{operation}响应失败：{error}"))?
         .choices
         .into_iter()
         .next()
         .and_then(|choice| choice.message.content)
         .map(|content| content.trim().to_owned())
         .filter(|content| !content.is_empty())
-        .ok_or_else(|| "翻译模型没有返回文字".to_string())
+        .ok_or_else(|| format!("{operation}模型没有返回文字"))
 }
 
 fn client() -> Result<Client, String> {
@@ -297,6 +314,32 @@ fn client() -> Result<Client, String> {
         .timeout(Duration::from_secs(120))
         .build()
         .map_err(|error| error.to_string())
+}
+
+pub fn complete_model(
+    data_dir: &Path,
+    system: &str,
+    user: &str,
+) -> Result<ModelCompletion, String> {
+    let mut preferences = translations::settings(&data_dir.join("reflo.sqlite"))
+        .map(from_record)
+        .map_err(|error| error.to_string())?;
+    validate(&mut preferences)?;
+    let api_key = credentials::get(keychain_account(&preferences.provider)?)?
+        .ok_or("请先在翻译设置中保存 API Key")?;
+    let content = request_chat_completion(
+        &client()?,
+        &preferences,
+        &api_key,
+        system,
+        user,
+        "Paper Tree 生成",
+    )?;
+    Ok(ModelCompletion {
+        content,
+        provider: preferences.provider,
+        model: preferences.model,
+    })
 }
 
 pub fn translate(data_dir: &Path, text: &str) -> Result<TranslationResult, String> {

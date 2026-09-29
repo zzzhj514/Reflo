@@ -14,3 +14,10 @@ export type PaperTree = {
 };
 
 export type SavePaperTreeInput = Pick<PaperTree, "paperId" | "title" | "nodes">;
+
+export type PaperTreeGeneration = {
+  tree: PaperTree;
+  provider: string;
+  model: string;
+  sourceTruncated: boolean;
+};

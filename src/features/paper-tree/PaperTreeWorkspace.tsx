@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Paper } from "../../shared/contracts/library";
 import type { PaperTree, PaperTreeNode } from "../../shared/contracts/paperTree";
-import { getPaperTree, savePaperTree } from "../../shared/ipc/paperTree";
+import { generatePaperTree, getPaperTree, savePaperTree } from "../../shared/ipc/paperTree";
+import { TranslationSettings } from "../reader/components/TranslationSettings";
 
 type Props = {
   paper: Paper;
@@ -124,7 +125,10 @@ export function PaperTreeWorkspace({ paper, onSaved, onClose }: Props) {
   const [mode, setMode] = useState<Mode>("outline");
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [generationStatus, setGenerationStatus] = useState<string | null>(null);
+  const [showModelSettings, setShowModelSettings] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
@@ -162,6 +166,29 @@ export function PaperTreeWorkspace({ paper, onSaved, onClose }: Props) {
     }
   }
 
+  async function handleGenerate() {
+    if (generating || saving) return;
+    if ((tree?.saved || dirty) && !window.confirm("AI 生成会替换当前 Paper Tree。确定继续吗？")) return;
+    setGenerating(true);
+    setError(null);
+    setGenerationStatus("正在读取 Markdown 并分析论文；长文可能需要多次模型调用…");
+    try {
+      const result = await generatePaperTree(paper.id);
+      setTree(result.tree);
+      setDirty(false);
+      setMode("tree");
+      onSaved();
+      setGenerationStatus(
+        `${result.provider} / ${result.model} 已生成并保存${result.sourceTruncated ? "；原文较长，本次从全文均匀抽样分析了 144,000 个字符" : ""}。`,
+      );
+    } catch (reason) {
+      setError(`AI 生成失败：${String(reason)}`);
+      setGenerationStatus(null);
+    } finally {
+      setGenerating(false);
+    }
+  }
+
   return (
     <div className="paper-tree-workspace">
       <header className="paper-tree-heading">
@@ -174,13 +201,18 @@ export function PaperTreeWorkspace({ paper, onSaved, onClose }: Props) {
           <button aria-pressed={mode === "outline"} onClick={() => setMode("outline")}>大纲编辑</button>
           <button aria-pressed={mode === "tree"} onClick={() => setMode("tree")}>树状视图</button>
         </div>
+        <button className="secondary-button" disabled={generating || saving}
+          onClick={() => setShowModelSettings(true)}>模型设置</button>
+        <button className="paper-tree-ai-button" disabled={!tree || generating || saving}
+          onClick={() => void handleGenerate()}>{generating ? "AI 分析中…" : "AI 生成并保存"}</button>
         <span className="paper-tree-save-state">{dirty ? "有未保存修改" : tree?.saved ? "已保存" : "模板未保存"}</span>
-        <button className="primary-button" disabled={!tree || saving} onClick={handleSave}>
+        <button className="primary-button" disabled={!tree || saving || generating} onClick={handleSave}>
           {saving ? "保存中…" : "保存 Paper Tree"}
         </button>
       </header>
 
       {error && <p className="paper-tree-error" role="alert">{error}</p>}
+      {generationStatus && <p className="paper-tree-generation-status" role="status">{generationStatus}</p>}
       {!tree && !error && <p className="reader-notice" role="status">正在加载 Paper Tree…</p>}
 
       {tree && mode === "outline" && (
@@ -233,6 +265,14 @@ export function PaperTreeWorkspace({ paper, onSaved, onClose }: Props) {
             </ul>
           </div>
         </main>
+      )}
+
+      {showModelSettings && (
+        <aside className="paper-tree-settings" aria-label="Paper Tree 模型设置">
+          <header><h3>模型设置</h3><button aria-label="关闭模型设置" onClick={() => setShowModelSettings(false)}>×</button></header>
+          <p className="muted">Paper Tree 与翻译共用 OpenAI-compatible 服务和 API Key。生成前需先完成 PDF 到 Markdown 的转换。</p>
+          <TranslationSettings />
+        </aside>
       )}
     </div>
   );

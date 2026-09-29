@@ -350,7 +350,15 @@ button:disabled { cursor: not-allowed; }
 .paper-tree-mode button { padding: 6px 11px; border: 0; border-radius: 6px; background: transparent; color: #475569; cursor: pointer; }
 .paper-tree-mode button[aria-pressed="true"] { background: #fff; color: #0f172a; box-shadow: 0 1px 3px #0002; }
 .paper-tree-save-state { flex-shrink: 0; color: #64748b; font-size: 12px; }
+.paper-tree-ai-button { flex-shrink: 0; padding: 8px 12px; border: 0; border-radius: 8px; background: linear-gradient(135deg, #7c3aed, #2563eb); color: #fff; cursor: pointer; }
+.paper-tree-ai-button:disabled { opacity: .5; cursor: not-allowed; }
 .paper-tree-error { margin: 14px 20px 0; padding: 9px 12px; border-radius: 7px; background: #fef2f2; color: #b91c1c; font-size: 13px; }
+.paper-tree-generation-status { margin: 14px 20px 0; padding: 9px 12px; border-radius: 7px; background: #eef2ff; color: #4338ca; font-size: 13px; }
+.paper-tree-settings { position: absolute; z-index: 30; top: 72px; right: 18px; bottom: 18px; width: min(400px, calc(100vw - 36px)); padding: 0 18px 18px; border: 1px solid #d1d5db; border-radius: 12px; background: #fff; box-shadow: 0 8px 30px #0003; overflow-y: auto; }
+.paper-tree-settings > header { position: sticky; top: 0; display: flex; align-items: center; justify-content: space-between; margin: 0 -18px 12px; padding: 14px 18px; border-bottom: 1px solid #e5e7eb; background: #fff; }
+.paper-tree-settings h3 { margin: 0; font-size: 16px; }
+.paper-tree-settings > header button { border: 0; background: transparent; font-size: 25px; cursor: pointer; }
+.paper-tree-settings > .muted { margin-bottom: 16px; }
 .paper-tree-outline-scroll { flex: 1; min-height: 0; padding: 28px; overflow: auto; }
 .paper-tree-outline-paper { width: min(960px, 100%); min-height: 100%; margin: 0 auto; padding: 38px 48px 60px; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; box-shadow: 0 5px 22px #0f172a0d; }
 .paper-tree-title-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding-bottom: 20px; border-bottom: 1px solid #e5e7eb; }
